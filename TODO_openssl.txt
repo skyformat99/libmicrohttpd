@@ -1,0 +1,8 @@
+- Test on WIN32.
+- Clean up openssl threading initialization.
+- Complete and debug upgrade.
+- Create SSL engine abstraction.
+- Port gnutls and openssl to this abstraction.
+- Extend API for use of openssl.
+- Pass all tests.
+- Update documentation.
