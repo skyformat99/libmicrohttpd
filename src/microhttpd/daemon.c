@@ -502,15 +502,20 @@ recv_tls_adapter (struct MHD_Connection *connection,
                   (int)i);
   if (res <= 0)
     {
-      res = SSL_get_error (connection->tls_session,
-                           res);
-      switch (res)
+      switch (SSL_get_error (connection->tls_session,
+                             res))
         {
         case SSL_ERROR_WANT_READ:
-        case SSL_ERROR_WANT_ACCEPT:
           MHD_socket_set_error_ (MHD_SCKT_EINTR_);
 #ifdef EPOLL_SUPPORT
           connection->epoll_state &= ~MHD_EPOLL_STATE_READ_READY;
+#endif
+          return -1;
+
+        case SSL_ERROR_WANT_WRITE:
+          MHD_socket_set_error_ (MHD_SCKT_EINTR_);
+#ifdef EPOLL_SUPPORT
+          connection->epoll_state &= ~MHD_EPOLL_STATE_WRITE_READY;
 #endif
           return -1;
 
@@ -598,12 +603,17 @@ send_tls_adapter (struct MHD_Connection *connection,
                    (int)i);
   if (res <= 0)
     {
-      res = SSL_get_error (connection->tls_session,
-                           res);
-      switch (res)
+      switch (SSL_get_error (connection->tls_session,
+                             res))
         {
+        case SSL_ERROR_WANT_READ:
+          MHD_socket_set_error_ (MHD_SCKT_EINTR_);
+#ifdef EPOLL_SUPPORT
+          connection->epoll_state &= ~MHD_EPOLL_STATE_READ_READY;
+#endif
+          return -1;
+
         case SSL_ERROR_WANT_WRITE:
-        case SSL_ERROR_WANT_ACCEPT:
           MHD_socket_set_error_ (MHD_SCKT_EINTR_);
 #ifdef EPOLL_SUPPORT
           connection->epoll_state &= ~MHD_EPOLL_STATE_WRITE_READY;
@@ -1509,8 +1519,6 @@ cleanup_upgraded_connection (struct MHD_Connection *connection)
 static void
 process_urh (struct MHD_UpgradeResponseHandle *urh)
 {
-  /* TODO */
-#if 0
   /* Help compiler to optimize:
    * pointers to 'connection' and 'daemon' are not changed
    * during this processing, so no need to chain dereference
@@ -1593,6 +1601,7 @@ process_urh (struct MHD_UpgradeResponseHandle *urh)
         buf_size = SSIZE_MAX;
 
       connection->tls_read_ready = false;
+#if 0
       res = gnutls_record_recv (connection->tls_session,
                                 &urh->in_buffer[urh->in_buffer_used],
                                 buf_size);
@@ -1610,12 +1619,40 @@ process_urh (struct MHD_UpgradeResponseHandle *urh)
                 }
             }
         }
+#else
+      if (buf_size > INT_MAX)
+        buf_size = INT_MAX;
+      res = SSL_read (connection->tls_session,
+                      &urh->in_buffer[urh->in_buffer_used],
+                      (int)buf_size);
+      if (0 >= res)
+        {
+          switch (SSL_get_error (connection->tls_session,
+                                 res))
+            {
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:
+              urh->app.celi &= ~MHD_EPOLL_STATE_READ_READY;
+              break;
+
+            default:
+              /* Unrecoverable error on socket was detected or
+               * socket was disconnected/shut down. */
+              /* Stop trying to read from this TLS socket. */
+              urh->in_buffer_size = 0;
+            }
+        }
+#endif
       else /* 0 < res */
         {
           urh->in_buffer_used += res;
           if (buf_size > (size_t)res)
             urh->app.celi &= ~MHD_EPOLL_STATE_READ_READY;
+#if 0
           else if (0 < gnutls_record_check_pending (connection->tls_session))
+#else
+          else if (0 < SSL_pending (connection->tls_session))
+#endif
             connection->tls_read_ready = true;
         }
       if (MHD_EPOLL_STATE_ERROR ==
@@ -1695,6 +1732,7 @@ process_urh (struct MHD_UpgradeResponseHandle *urh)
       if (data_size > SSIZE_MAX)
         data_size = SSIZE_MAX;
 
+#if 0
       res = gnutls_record_send (connection->tls_session,
                                 urh->out_buffer,
                                 data_size);
@@ -1721,7 +1759,50 @@ process_urh (struct MHD_UpgradeResponseHandle *urh)
                   urh->mhd.celi &= ~MHD_EPOLL_STATE_READ_READY;
                 }
             }
+#else
+      if (data_size > INT_MAX)
+        data_size = INT_MAX;
+
+      res = SSL_write (connection->tls_session,
+                       urh->out_buffer,
+                       data_size);
+      if (0 >= res)
+        {
+          switch (SSL_get_error (connection->tls_session,
+                                 res))
+            {
+            case SSL_ERROR_WANT_READ:
+            case SSL_ERROR_WANT_WRITE:
+              urh->app.celi &= ~MHD_EPOLL_STATE_WRITE_READY;
+              break;
+
+            default:
+              {
+                /* TLS connection shut down or
+                 * persistent / unrecoverable error. */
+#ifdef HAVE_MESSAGES
+                char message[256];
+                MHD_DLOG (daemon,
+                          _("Failed to forward to remote client " MHD_UNSIGNED_LONG_LONG_PRINTF \
+                              " bytes of data received from application: %s\n"),
+                          (MHD_UNSIGNED_LONG_LONG) urh->out_buffer_used,
+#if 0
+                          gnutls_strerror(res)
+#else
+                          ERR_error_string (res, message)
+#endif
+                          );
+#endif
+                /* Discard any data unsent to remote. */
+                urh->out_buffer_used = 0;
+                /* Do not try to pull more data from application. */
+                urh->out_buffer_size = 0;
+                urh->mhd.celi &= ~MHD_EPOLL_STATE_READ_READY;
+                break;
+              }
+            }
         }
+#endif
       else /* 0 < res */
         {
           const size_t next_out_buffer_used = urh->out_buffer_used - res;
@@ -1843,7 +1924,6 @@ process_urh (struct MHD_UpgradeResponseHandle *urh)
       urh->out_buffer_size = 0;
       urh->mhd.celi &= ~MHD_EPOLL_STATE_READ_READY;
     }
-#endif
 }
 #endif /* HTTPS_SUPPORT  && UPGRADE_SUPPORT */
 
