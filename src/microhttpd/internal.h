@@ -31,9 +31,14 @@
 #include "platform.h"
 #include "microhttpd.h"
 #ifdef HTTPS_SUPPORT
+#if 0
 #include <gnutls/gnutls.h>
 #if GNUTLS_VERSION_MAJOR >= 3
 #include <gnutls/abstract.h>
+#endif
+#else
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
 #endif
 #endif /* HTTPS_SUPPORT */
 
@@ -966,7 +971,11 @@ struct MHD_Connection
   /**
    * State required for HTTPS/SSL/TLS support.
    */
+#if 0
   gnutls_session_t tls_session;
+#else
+  SSL *tls_session;
+#endif
 
   /**
    * Memory location to return for protocol session info.
@@ -1605,32 +1614,53 @@ struct MHD_Daemon
 #endif /* UPGRADE_SUPPORT */
 
   /**
+   * SSL context.
+   */
+#if 0
+#else
+  SSL_CTX *ssl_ctx;
+#endif
+  /**
    * Desired cipher algorithms.
    */
+#if 0
   gnutls_priority_t priority_cache;
+#else
+  char *priority_list;
+#endif
 
   /**
    * What kind of credentials are we offering
    * for SSL/TLS?
    */
+#if 0
   gnutls_credentials_type_t cred_type;
+#endif
 
   /**
    * Server x509 credentials
    */
+#if 0
   gnutls_certificate_credentials_t x509_cred;
+#endif
 
   /**
    * Diffie-Hellman parameters
    */
+#if 0
   gnutls_dh_params_t dh_params;
+#endif
 
+#if 0
 #if GNUTLS_VERSION_MAJOR >= 3
   /**
    * Function that can be used to obtain the certificate.  Needed
    * for SNI support.  See #MHD_OPTION_HTTPS_CERT_CALLBACK.
    */
   gnutls_certificate_retrieve_function2 *cert_callback;
+#endif
+#else
+  int (*cert_callback)(SSL *ssl, void *arg);
 #endif
 
   /**
@@ -1656,12 +1686,16 @@ struct MHD_Daemon
   /**
    * Our Diffie-Hellman parameters in memory.
    */
+#if 0
   gnutls_dh_params_t https_mem_dhparams;
 
   /**
    * true if we have initialized @e https_mem_dhparams.
    */
   bool have_dhparams;
+#else
+  DH *https_mem_dhparams;
+#endif
 
 #endif /* HTTPS_SUPPORT */
 

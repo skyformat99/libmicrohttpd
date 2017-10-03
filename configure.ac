@@ -1129,6 +1129,8 @@ GNUTLS_LDFLAGS=""
 have_gnutls=no
 have_gnutls_sni=no
 have_gcrypt=no
+have_libssl=no
+have_libcrypto=no
 
 # optional: HTTPS support.  Enabled by default
 AC_ARG_ENABLE([https],
@@ -1279,11 +1281,22 @@ AC_SUBST([GNUTLS_CFLAGS])
 AC_SUBST([GNUTLS_LDFLAGS])
 AC_SUBST([GNUTLS_LIBS])
 
+# libcrypto linkage: required for HTTPS support
+PKG_CHECK_MODULES([LIBCRYPTO], [libcrypto],
+  [have_libcrypto=yes],
+  [have_libcrypto=no]
+)
+
+# libssl
+PKG_CHECK_MODULES([LIBSSL], [libssl],
+  [have_libssl=yes],
+  [have_libssl=no]
+)
+
 #
 # End of large unindented block
 #
   AS_IF([test "x$have_gnutls" = "xyes" && test "x$have_gcrypt" = "xyes"], [
-          AC_DEFINE([[HTTPS_SUPPORT]],[[1]],[Define to 1 if libmicrohttpd is compiled with HTTPS support.])
           enable_https=yes
           MSG_HTTPS="yes (using libgnutls and libgcrypt)"
           MHD_LIB_CPPFLAGS="$MHD_LIB_CPPFLAGS $LIBGCRYPT_CFLAGS $GNUTLS_CPPFLAGS"
@@ -1307,6 +1320,24 @@ AC_SUBST([GNUTLS_LIBS])
           enable_https=no
           MSG_HTTPS="no (lacking $crypt_missing)"
         ])
+
+  AS_IF([test "x$have_libcrypto" = "xyes" && test "x$have_libssl" = "xyes"], [
+          enable_https=yes
+          MSG_HTTPS="yes (using libssl and libcrypto)"
+          MHD_LIB_CPPFLAGS="$MHD_LIB_CPPFLAGS $LIBCRYPTO_CFLAGS $LIBSSL_CFLAGS"
+          MHD_LIB_CFLAGS="$MHD_LIB_CFLAGS $LIBCRYPTO_CFLAGS $LIBSSL_CFLAGS"
+          MHD_LIB_LDFLAGS="$MHD_LIB_LDFLAGS $LIBSSL_LIBS $LIBCRYPTO_LIBS"
+        ], [
+          AS_IF([test "x$have_libssl" = "xyes"],    [crypt_missing="libcrypto"],
+                [test "x$have_libcrypto" = "xyes"], [crypt_missing="libssl"],
+                                                    [crypt_missing="libcrypto and libssl"])
+          AS_IF([[test "x$enable_https" = "xyes" ]], [AC_MSG_ERROR([[HTTPS support cannot be enabled without $crypt_missing.]])])
+          enable_https=no
+          MSG_HTTPS="no (lacking $crypt_missing)"
+        ])
+  AS_IF([test "x$enable_https" = "xyes"], [
+          AC_DEFINE([[HTTPS_SUPPORT]],[[1]],[Define to 1 if libmicrohttpd is compiled with HTTPS support.])
+        ])
 else
   MSG_HTTPS="no (disabled)"
 fi
@@ -1315,6 +1346,8 @@ AC_MSG_RESULT([$MSG_HTTPS])
 
 AM_CONDITIONAL([HAVE_GNUTLS], [[test "x$have_gnutls" = "xyes"]])
 AM_CONDITIONAL([HAVE_GNUTLS_SNI], [[test "x$have_gnutls_sni" = "xyes"]])
+AM_CONDITIONAL([HAVE_LIBSSL], [[test "x$have_libssl" = "xyes"]])
+AM_CONDITIONAL([HAVE_LIBCRYPTO], [[test "x$have_libcrypto" = "xyes"]])
 AM_CONDITIONAL([ENABLE_HTTPS], [test "x$enable_https" = "xyes"])
 
 # optional: HTTP Basic Auth support. Enabled by default

@@ -47,7 +47,13 @@
 
 #ifdef HTTPS_SUPPORT
 #include "connection_https.h"
+#if 0
 #include <gcrypt.h>
+#else
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
+#endif
 #endif /* HTTPS_SUPPORT */
 
 #ifdef LINUX
@@ -443,6 +449,7 @@ recv_tls_adapter (struct MHD_Connection *connection,
                   void *other,
                   size_t i)
 {
+#if 0
   ssize_t res;
 
   if (i > SSIZE_MAX)
@@ -480,7 +487,54 @@ recv_tls_adapter (struct MHD_Connection *connection,
   /* Check whether TLS buffers still have some unread data. */
   connection->tls_read_ready = ( ((size_t)res == i) &&
                                  (0 != gnutls_record_check_pending (connection->tls_session)) );
+
   return res;
+#else
+  ssize_t res;
+
+  if (i > SSIZE_MAX)
+    i = SSIZE_MAX;
+  if (i > INT_MAX)
+    i = INT_MAX;
+
+  res = SSL_read (connection->tls_session,
+                  other,
+                  (int)i);
+  if (res <= 0)
+    {
+      res = SSL_get_error (connection->tls_session,
+                           res);
+      switch (res)
+        {
+        case SSL_ERROR_WANT_READ:
+        case SSL_ERROR_WANT_ACCEPT:
+          MHD_socket_set_error_ (MHD_SCKT_EINTR_);
+#ifdef EPOLL_SUPPORT
+          connection->epoll_state &= ~MHD_EPOLL_STATE_READ_READY;
+#endif
+          return -1;
+
+        default:
+          /* client communication disrupted; set errno to something caller will
+             interpret correctly as a hard error */
+          MHD_socket_set_error_ (MHD_SCKT_ECONNRESET_);
+          connection->tls_read_ready = false;
+          return -1;
+        }
+    }
+
+#ifdef EPOLL_SUPPORT
+  /* If data not available to fill whole buffer - socket is not read ready anymore. */
+  if (i > (size_t)res)
+    connection->epoll_state &= ~MHD_EPOLL_STATE_READ_READY;
+#endif /* EPOLL_SUPPORT */
+
+  /* Check whether TLS buffers still have some unread data. */
+  connection->tls_read_ready = ( ((size_t)res == i) &&
+                                 (0 != SSL_pending (connection->tls_session)) );
+
+  return res;
+#endif
 }
 
 
@@ -497,6 +551,7 @@ send_tls_adapter (struct MHD_Connection *connection,
                   const void *other,
                   size_t i)
 {
+#if 0
   ssize_t res;
 
   if (i > SSIZE_MAX)
@@ -530,6 +585,46 @@ send_tls_adapter (struct MHD_Connection *connection,
     connection->epoll_state &= ~MHD_EPOLL_STATE_WRITE_READY;
 #endif /* EPOLL_SUPPORT */
   return res;
+#else
+  ssize_t res;
+
+  if (i > SSIZE_MAX)
+    i = SSIZE_MAX;
+  if (i > INT_MAX)
+    i = INT_MAX;
+
+  res = SSL_write (connection->tls_session,
+                   other,
+                   (int)i);
+  if (res <= 0)
+    {
+      res = SSL_get_error (connection->tls_session,
+                           res);
+      switch (res)
+        {
+        case SSL_ERROR_WANT_WRITE:
+        case SSL_ERROR_WANT_ACCEPT:
+          MHD_socket_set_error_ (MHD_SCKT_EINTR_);
+#ifdef EPOLL_SUPPORT
+          connection->epoll_state &= ~MHD_EPOLL_STATE_WRITE_READY;
+#endif
+          return -1;
+
+        default:
+          /* client communication disrupted; set errno to something caller will
+             interpret correctly as a hard error */
+          MHD_socket_set_error_ (MHD_SCKT_ECONNRESET_);
+          connection->tls_read_ready = false;
+          return -1;
+        }
+    }
+#ifdef EPOLL_SUPPORT
+  /* If NOT all available data was sent - socket is not write ready anymore. */
+  if (i > (size_t)res)
+    connection->epoll_state &= ~MHD_EPOLL_STATE_WRITE_READY;
+#endif /* EPOLL_SUPPORT */
+  return res;
+#endif
 }
 
 
@@ -542,6 +637,7 @@ send_tls_adapter (struct MHD_Connection *connection,
 static int
 MHD_init_daemon_certificate (struct MHD_Daemon *daemon)
 {
+#if 0
   gnutls_datum_t key;
   gnutls_datum_t cert;
   int ret;
@@ -622,6 +718,137 @@ MHD_init_daemon_certificate (struct MHD_Daemon *daemon)
             "You need to specify a certificate and key location\n");
 #endif
   return -1;
+#else
+  if (NULL != daemon->cert_callback)
+    {
+      SSL_CTX_set_cert_cb(daemon->ssl_ctx,
+                          daemon->cert_callback,
+                          NULL);
+    }
+  if (NULL != daemon->https_mem_trust)
+    {
+      X509 *cert = NULL;
+      BIO *bio;
+
+      bio = BIO_new_mem_buf (daemon->https_mem_trust, -1);
+      if (NULL != bio)
+        {
+          cert = PEM_read_bio_X509 (bio,
+                                    NULL,
+                                    0,
+                                    NULL);
+          BIO_free_all (bio);
+        }
+      if (NULL == cert)
+        {
+#ifdef HAVE_MESSAGES
+	  MHD_DLOG(daemon,
+		   "Bad trust certificate format\n");
+#endif
+	  return -1;
+        }
+      if (!SSL_CTX_add_extra_chain_cert (daemon->ssl_ctx,
+                                         cert))
+        {
+#ifdef HAVE_MESSAGES
+	  MHD_DLOG(daemon,
+		   "Cannot set trust certificate\n");
+#endif
+          X509_free (cert);
+	  return -1;
+	}
+      X509_free (cert);
+    }
+
+  if (NULL != daemon->https_mem_dhparams)
+    {
+      if (!SSL_CTX_set_tmp_dh (daemon->ssl_ctx,
+                               daemon->https_mem_dhparams))
+        {
+#ifdef HAVE_MESSAGES
+	  MHD_DLOG(daemon,
+		   "Cannot set Diffie-Hellman parameters\n");
+#endif
+          return -1;
+        }
+    }
+
+  /* certificate & key loaded from memory */
+  if ( (NULL != daemon->https_mem_cert) &&
+       (NULL != daemon->https_mem_key) )
+    {
+      X509 *cert = NULL;
+      EVP_PKEY *key = NULL;
+      BIO *bio;
+
+      bio = BIO_new_mem_buf (daemon->https_mem_cert, -1);
+      if (NULL != bio)
+        {
+          cert = PEM_read_bio_X509 (bio,
+                                    NULL,
+                                    0,
+                                    NULL);
+          BIO_free_all (bio);
+        }
+      if (NULL == cert)
+        {
+#ifdef HAVE_MESSAGES
+	  MHD_DLOG(daemon,
+		   "Bad server certificate format\n");
+#endif
+	  return -1;
+        }
+      if (!SSL_CTX_use_certificate (daemon->ssl_ctx,
+                                    cert))
+        {
+#ifdef HAVE_MESSAGES
+	  MHD_DLOG(daemon,
+		   "Cannot set server certificate\n");
+#endif
+          X509_free (cert);
+	  return -1;
+	}
+      X509_free (cert);
+
+      bio = BIO_new_mem_buf (daemon->https_mem_key, -1);
+      if (NULL != bio)
+        {
+          key = PEM_read_bio_PrivateKey (bio,
+                                         NULL,
+                                         NULL,
+                                         (void *)daemon->https_key_password);
+          BIO_free_all (bio);
+        }
+      if (NULL == key)
+        {
+#ifdef HAVE_MESSAGES
+	  MHD_DLOG(daemon,
+		   "Bad server key format or invalid password\n");
+#endif
+          X509_free (cert);
+	  return -1;
+        }
+      if (!SSL_CTX_use_PrivateKey (daemon->ssl_ctx,
+                                   key))
+        {
+#ifdef HAVE_MESSAGES
+	  MHD_DLOG(daemon,
+		   "Cannot set server private key\n");
+#endif
+          EVP_PKEY_free (key);
+	  return -1;
+	}
+      EVP_PKEY_free (key);
+      return 0;
+    }
+  if (NULL != daemon->cert_callback)
+    return 0;
+#ifdef HAVE_MESSAGES
+  MHD_DLOG (daemon,
+            "You need to specify a certificate and key location\n");
+#endif
+  return -1;
+#endif
 }
 
 
@@ -634,6 +861,7 @@ MHD_init_daemon_certificate (struct MHD_Daemon *daemon)
 static int
 MHD_TLS_init (struct MHD_Daemon *daemon)
 {
+#if 0
   switch (daemon->cred_type)
     {
     case GNUTLS_CRD_CERTIFICATE:
@@ -649,6 +877,9 @@ MHD_TLS_init (struct MHD_Daemon *daemon)
 #endif
       return -1;
     }
+#else
+  return MHD_init_daemon_certificate (daemon);
+#endif
 }
 #endif /* HTTPS_SUPPORT */
 
@@ -1247,8 +1478,12 @@ cleanup_upgraded_connection (struct MHD_Connection *connection)
   /* Signal remote client the end of TLS connection by
    * gracefully closing TLS session. */
   if (0 != (connection->daemon->options & MHD_USE_TLS))
+#if 0
     gnutls_bye (connection->tls_session,
                 GNUTLS_SHUT_WR);
+#else
+    SSL_shutdown(connection->tls_session);
+#endif
 
   if (MHD_INVALID_SOCKET != urh->mhd.socket)
     MHD_socket_close_chk_ (urh->mhd.socket);
@@ -1274,6 +1509,8 @@ cleanup_upgraded_connection (struct MHD_Connection *connection)
 static void
 process_urh (struct MHD_UpgradeResponseHandle *urh)
 {
+  /* TODO */
+#if 0
   /* Help compiler to optimize:
    * pointers to 'connection' and 'daemon' are not changed
    * during this processing, so no need to chain dereference
@@ -1606,6 +1843,7 @@ process_urh (struct MHD_UpgradeResponseHandle *urh)
       urh->out_buffer_size = 0;
       urh->mhd.celi &= ~MHD_EPOLL_STATE_READ_READY;
     }
+#endif
 }
 #endif /* HTTPS_SUPPORT  && UPGRADE_SUPPORT */
 
@@ -2540,6 +2778,7 @@ internal_add_connection (struct MHD_Daemon *daemon,
       connection->send_cls = &send_tls_adapter;
       connection->state = MHD_TLS_CONNECTION_INIT;
       MHD_set_https_callbacks (connection);
+#if 0
       gnutls_init (&connection->tls_session,
                    GNUTLS_SERVER);
       gnutls_priority_set (connection->tls_session,
@@ -2580,6 +2819,50 @@ internal_add_connection (struct MHD_Daemon *daemon,
       if (daemon->https_mem_trust)
 	  gnutls_certificate_server_set_request (connection->tls_session,
 						 GNUTLS_CERT_REQUEST);
+#else
+      int error = 0;
+
+      connection->tls_session = SSL_new (daemon->ssl_ctx);
+      if (NULL == connection->tls_session)
+        {
+#ifdef HAVE_MESSAGES
+          MHD_DLOG (connection->daemon,
+                    _("Failed to allocate SSL session\n"));
+#endif
+          error = ENOMEM;
+        }
+      if (0 == error &&
+          1 != SSL_set_fd (connection->tls_session, client_socket))
+        {
+#ifdef HAVE_MESSAGES
+          MHD_DLOG (connection->daemon,
+                    _("Failed to connect SSL session to socket\n"));
+#endif
+          error = EINVAL;
+        }
+      if (0 == error &&
+          NULL != daemon->priority_list &&
+          0 == SSL_set_cipher_list (connection->tls_session,
+                                    daemon->priority_list))
+        {
+#ifdef HAVE_MESSAGES
+          MHD_DLOG (connection->daemon,
+                    _("Failed to set cipher list\n"));
+#endif
+          error = EINVAL;
+        }
+      if (0 != error)
+        {
+          MHD_socket_close_chk_ (client_socket);
+          MHD_ip_limit_del (daemon,
+                            addr,
+                            addrlen);
+          free (connection->addr);
+          free (connection);
+	  errno = error;
+ 	  return MHD_NO;
+        }
+#endif
 #else  /* ! HTTPS_SUPPORT */
       eno = EINVAL;
       goto cleanup;
@@ -3191,7 +3474,11 @@ MHD_cleanup_connections (struct MHD_Daemon *daemon)
       MHD_pool_destroy (pos->pool);
 #ifdef HTTPS_SUPPORT
       if (NULL != pos->tls_session)
+#if 0
 	gnutls_deinit (pos->tls_session);
+#else
+        SSL_free (pos->tls_session);
+#endif
 #endif /* HTTPS_SUPPORT */
       daemon->connections--;
       daemon->at_limit = false;
@@ -4954,14 +5241,17 @@ parse_options_va (struct MHD_Daemon *daemon,
 #endif
           break;
 	case MHD_OPTION_HTTPS_CRED_TYPE:
+#if 0
 	  daemon->cred_type = (gnutls_credentials_type_t) va_arg (ap,
                                                                   int);
+#endif
 	  break;
         case MHD_OPTION_HTTPS_MEM_DHPARAMS:
           if (0 != (daemon->options & MHD_USE_TLS))
             {
               const char *arg = va_arg (ap,
                                         const char *);
+#if 0
               gnutls_datum_t dhpar;
 
               if (gnutls_dh_params_init (&daemon->https_mem_dhparams) < 0)
@@ -4986,6 +5276,31 @@ parse_options_va (struct MHD_Daemon *daemon,
                   return MHD_NO;
                 }
               daemon->have_dhparams = true;
+#else
+              DH *dh = NULL;
+              BIO *bio;
+
+              bio = BIO_new_mem_buf (arg, -1);
+              if (NULL != bio)
+              {
+                dh = PEM_read_bio_DHparams (bio,
+                                            NULL,
+                                            0,
+                                            NULL);
+                BIO_free_all (bio);
+              }
+              if (NULL == dh)
+                {
+#ifdef HAVE_MESSAGES
+                  MHD_DLOG(daemon,
+                           _("Bad Diffie-Hellman parameters format\n"));
+#endif
+                  return MHD_NO;
+                }
+              if (NULL != daemon->https_mem_dhparams)
+                DH_free (daemon->https_mem_dhparams);
+              daemon->https_mem_dhparams = dh;
+#endif
             }
           else
             {
@@ -4998,6 +5313,7 @@ parse_options_va (struct MHD_Daemon *daemon,
             }
           break;
         case MHD_OPTION_HTTPS_PRIORITIES:
+#if 0
 	  if (0 != (daemon->options & MHD_USE_TLS))
 	    {
 	      gnutls_priority_deinit (daemon->priority_cache);
@@ -5016,8 +5332,13 @@ parse_options_va (struct MHD_Daemon *daemon,
 		return MHD_NO;
 	      }
 	    }
+#else
+          free (daemon->priority_list);
+          daemon->priority_list = strdup (va_arg (ap, const char *));
+#endif
           break;
         case MHD_OPTION_HTTPS_CERT_CALLBACK:
+#if 0
 #if GNUTLS_VERSION_MAJOR < 3
 #ifdef HAVE_MESSAGES
           MHD_DLOG (daemon,
@@ -5028,8 +5349,15 @@ parse_options_va (struct MHD_Daemon *daemon,
           if (0 != (daemon->options & MHD_USE_TLS))
             daemon->cert_callback = va_arg (ap,
                                             gnutls_certificate_retrieve_function2 *);
-          break;
 #endif
+#else
+#ifdef HAVE_MESSAGES
+          MHD_DLOG (daemon,
+                    _("MHD_OPTION_HTTPS_CERT_CALLBACK not supported\n"));
+#endif
+          return MHD_NO;
+#endif
+          break;
 #endif /* HTTPS_SUPPORT */
 #ifdef DAUTH_SUPPORT
 	case MHD_OPTION_DIGEST_AUTH_RANDOM:
@@ -5137,12 +5465,14 @@ parse_options_va (struct MHD_Daemon *daemon,
 		  /* all options taking 'enum' */
 #ifdef HTTPS_SUPPORT
 		case MHD_OPTION_HTTPS_CRED_TYPE:
+#if 0
 		  if (MHD_YES != parse_options (daemon,
 						servaddr,
 						opt,
 						(gnutls_credentials_type_t) oa[i].value,
 						MHD_OPTION_END))
 		    return MHD_NO;
+#endif
 		  break;
 #endif /* HTTPS_SUPPORT */
                   /* all options taking 'MHD_socket' */
@@ -5462,12 +5792,20 @@ MHD_start_daemon_va (unsigned int flags,
 #endif
   /* try to open listen socket */
 #ifdef HTTPS_SUPPORT
+#if 0
   daemon->priority_cache = NULL;
+#else
+  daemon->priority_list = NULL;
+#endif
   if (0 != (*pflags & MHD_USE_TLS))
     {
+#if 0
       gnutls_priority_init (&daemon->priority_cache,
 			    "NORMAL",
 			    NULL);
+#else
+      /* TODO */
+#endif
     }
 #endif /* HTTPS_SUPPORT */
   daemon->listen_fd = MHD_INVALID_SOCKET;
@@ -5524,7 +5862,18 @@ MHD_start_daemon_va (unsigned int flags,
 #ifdef HTTPS_SUPPORT
   if (0 != (*pflags & MHD_USE_TLS))
     {
+#if 0
       daemon->cred_type = GNUTLS_CRD_CERTIFICATE;
+#endif
+      daemon->ssl_ctx = SSL_CTX_new (SSLv23_server_method ());
+      if (NULL == daemon->ssl_ctx)
+        {
+#ifdef HAVE_MESSAGES
+          MHD_DLOG (daemon,
+                    _("cannot create SSL context\n"));
+#endif
+          goto free_and_fail;
+        }
     }
 #endif /* HTTPS_SUPPORT */
 
@@ -5535,8 +5884,17 @@ MHD_start_daemon_va (unsigned int flags,
     {
 #ifdef HTTPS_SUPPORT
       if ( (0 != (*pflags & MHD_USE_TLS)) &&
+#if 0
 	   (NULL != daemon->priority_cache) )
 	gnutls_priority_deinit (daemon->priority_cache);
+#else
+	   (NULL != daemon->priority_list) )
+
+        {
+          free(daemon->priority_list);
+          daemon->priority_list = NULL;
+        }
+#endif
 #endif /* HTTPS_SUPPORT */
       free (daemon);
       return NULL;
@@ -5552,8 +5910,16 @@ MHD_start_daemon_va (unsigned int flags,
                     MHD_itc_last_strerror_ ());
 #endif
 #ifdef HTTPS_SUPPORT
+#if 0
           if (NULL != daemon->priority_cache)
             gnutls_priority_deinit (daemon->priority_cache);
+#else
+          if (NULL != daemon->priority_list)
+            {
+              free(daemon->priority_list);
+              daemon->priority_list = NULL;
+            }
+#endif
 #endif /* HTTPS_SUPPORT */
           free (daemon);
           return NULL;
@@ -5568,8 +5934,16 @@ MHD_start_daemon_va (unsigned int flags,
 #endif
           MHD_itc_destroy_chk_ (daemon->itc);
 #ifdef HTTPS_SUPPORT
+#if 0
           if (NULL != daemon->priority_cache)
             gnutls_priority_deinit (daemon->priority_cache);
+#else
+          if (NULL != daemon->priority_list)
+            {
+              free(daemon->priority_list);
+              daemon->priority_list = NULL;
+            }
+#endif
 #endif /* HTTPS_SUPPORT */
           free (daemon);
           return NULL;
@@ -5588,7 +5962,14 @@ MHD_start_daemon_va (unsigned int flags,
 #endif
 #ifdef HTTPS_SUPPORT
 	  if (0 != (*pflags & MHD_USE_TLS))
+#if 0
 	    gnutls_priority_deinit (daemon->priority_cache);
+#else
+            {
+              free(daemon->priority_list);
+              daemon->priority_list = NULL;
+            }
+#endif
 #endif /* HTTPS_SUPPORT */
 	  free (daemon);
 	  return NULL;
@@ -5603,7 +5984,14 @@ MHD_start_daemon_va (unsigned int flags,
 #endif
 #ifdef HTTPS_SUPPORT
 	  if (0 != (*pflags & MHD_USE_TLS))
+#if 0
 	    gnutls_priority_deinit (daemon->priority_cache);
+#else
+            {
+              free(daemon->priority_list);
+              daemon->priority_list = NULL;
+            }
+#endif
 #endif /* HTTPS_SUPPORT */
 	  free (daemon);
 	  return NULL;
@@ -5618,7 +6006,14 @@ MHD_start_daemon_va (unsigned int flags,
 #endif
 #ifdef HTTPS_SUPPORT
       if (0 != (*pflags & MHD_USE_TLS))
+#if 0
 	gnutls_priority_deinit (daemon->priority_cache);
+#else
+        {
+          free(daemon->priority_list);
+          daemon->priority_list = NULL;
+        }
+#endif
 #endif /* HTTPS_SUPPORT */
       free (daemon->nnc);
       free (daemon);
@@ -6148,7 +6543,14 @@ thread_failed:
 #endif
 #ifdef HTTPS_SUPPORT
   if (0 != (*pflags & MHD_USE_TLS))
+#if 0
     gnutls_priority_deinit (daemon->priority_cache);
+#else
+    {
+      free(daemon->priority_list);
+      daemon->priority_list = NULL;
+    }
+#endif
 #endif /* HTTPS_SUPPORT */
   if (MHD_ITC_IS_VALID_(daemon->itc))
     MHD_itc_destroy_chk_ (daemon->itc);
@@ -6420,16 +6822,30 @@ MHD_stop_daemon (struct MHD_Daemon *daemon)
 
   /* TLS clean up */
 #ifdef HTTPS_SUPPORT
+#if 0
   if (daemon->have_dhparams)
     {
       gnutls_dh_params_deinit (daemon->https_mem_dhparams);
       daemon->have_dhparams = false;
     }
+#else
+  if (NULL != daemon->https_mem_dhparams)
+    {
+      DH_free (daemon->https_mem_dhparams);
+      daemon->https_mem_dhparams = NULL;
+    }
+#endif
   if (0 != (daemon->options & MHD_USE_TLS))
     {
+#if 0
       gnutls_priority_deinit (daemon->priority_cache);
       if (daemon->x509_cred)
         gnutls_certificate_free_credentials (daemon->x509_cred);
+#else
+      free(daemon->priority_list);
+      daemon->priority_list = NULL;
+      /* TODO */
+#endif
     }
 #endif /* HTTPS_SUPPORT */
 
@@ -6687,7 +7103,7 @@ MHD_is_feature_supported(enum MHD_FEATURE feature)
   return MHD_NO;
 }
 
-
+#if 0
 #if defined(HTTPS_SUPPORT) && GCRYPT_VERSION_NUMBER < 0x010600
 #if defined(MHD_USE_POSIX_THREADS)
 GCRY_THREAD_OPTION_PTHREAD_IMPL;
@@ -6742,6 +7158,111 @@ static struct gcry_thread_cbs gcry_threads_w32 = {
 
 #endif /* defined(MHD_W32_MUTEX_) */
 #endif /* HTTPS_SUPPORT && GCRYPT_VERSION_NUMBER < 0x010600 */
+#endif
+#if defined(HTTPS_SUPPORT)
+#if defined(MHD_USE_POSIX_THREADS)
+static pthread_mutex_t *locks;
+
+static void pthreads_locking_callback (int mode, int type, const char *file, int line)
+{
+# if 0
+  fprintf (stderr,
+           "thread=%4d mode=%s lock=%s %s:%d\n",
+           CRYPTO_thread_id(),
+           (mode & CRYPTO_LOCK) ? "l" : "u",
+           (type & CRYPTO_READ) ? "r" : "w",
+           file,
+           line);
+# endif
+# if 0
+  if (CRYPTO_LOCK_SSL_CERT == type)
+    fprintf(stderr,
+            "(t,m,f,l) %ld %d %s %d\n",
+            CRYPTO_thread_id(),
+            mode,
+            file,
+            line);
+# endif
+  if (mode & CRYPTO_LOCK)
+    pthread_mutex_lock (&locks[type]);
+  else
+    pthread_mutex_unlock (&locks[type]);
+}
+
+static unsigned long pthreads_thread_id (void)
+{
+  return (unsigned long)pthread_self ();
+}
+
+static void CRYPTO_thread_init (void)
+{
+  size_t i;
+
+  locks = OPENSSL_malloc (CRYPTO_num_locks () * sizeof (pthread_mutex_t));
+  if (NULL == locks)
+    MHD_PANIC (_("Cannot initialize OpenSSL threading\n"));
+
+  for (i = 0; i < CRYPTO_num_locks (); i++)
+    pthread_mutex_init (&locks[i], NULL);
+
+  CRYPTO_set_id_callback (pthreads_thread_id);
+  CRYPTO_set_locking_callback (pthreads_locking_callback);
+}
+
+static void CRYPTO_thread_deinit (void)
+{
+  size_t i;
+
+  CRYPTO_set_locking_callback (NULL);
+  CRYPTO_set_id_callback (NULL);
+  for (i = 0; i < CRYPTO_num_locks (); i++)
+    pthread_mutex_destroy (&locks[i]);
+  OPENSSL_free (locks);
+}
+#elif defined(MHD_W32_MUTEX_)
+static HANDLE *locks;
+
+void win32_locking_callback (int mode, int type, const char *file, int line)
+{
+  if (mode & CRYPTO_LOCK)
+    WaitForSingleObject(locks[type], INFINITE);
+  else
+    ReleaseMutex(locks[type]);
+}
+
+static unsigned long win32_thread_id (void)
+{
+  return (unsigned long)GetCurrentThreadId ();
+}
+
+static void CRYPTO_thread_init (void)
+{
+  size_t i;
+
+  locks = OPENSSL_malloc (CRYPTO_num_locks () * sizeof (HANDLE));
+  if (NULL == locks)
+    MHD_PANIC (_("Cannot initialize OpenSSL threading\n"));
+
+  for (i = 0; i < CRYPTO_num_locks (); i++) {
+    locks[i] = CreateMutex (NULL, FALSE, NULL);
+  }
+
+  CRYPTO_set_id_callback (win32_thread_id);
+  CRYPTO_set_locking_callback (win32_locking_callback);
+}
+
+static void CRYPTO_thread_deinit (void)
+{
+  size_t i;
+
+  CRYPTO_set_locking_callback (NULL);
+  CRYPTO_set_id_callback (NULL);
+  for (i = 0; i < CRYPTO_num_locks (); i++)
+    CloseHandle (locks[i]);
+  OPENSSL_free (locks);
+}
+#endif
+#endif /* HTTPS_SUPPORT */
 
 
 /**
@@ -6764,6 +7285,7 @@ MHD_init(void)
     MHD_PANIC (_("Winsock version 2.2 is not available\n"));
 #endif
 #ifdef HTTPS_SUPPORT
+#if 0
 #if GCRYPT_VERSION_NUMBER < 0x010600
 #if defined(MHD_USE_POSIX_THREADS)
   if (0 != gcry_control (GCRYCTL_SET_THREAD_CBS,
@@ -6780,6 +7302,11 @@ MHD_init(void)
     MHD_PANIC (_("libgcrypt is too old. MHD was compiled for libgcrypt 1.6.0 or newer\n"));
 #endif
   gnutls_global_init ();
+#else
+  SSL_library_init ();
+  SSL_load_error_strings (),
+  CRYPTO_thread_init ();
+#endif
 #endif /* HTTPS_SUPPORT */
   MHD_monotonic_sec_counter_init();
 }
@@ -6789,7 +7316,13 @@ void
 MHD_fini(void)
 {
 #ifdef HTTPS_SUPPORT
+#if 0
   gnutls_global_deinit ();
+#else
+  CRYPTO_thread_deinit ();
+  ERR_free_strings ();
+  EVP_cleanup ();
+#endif
 #endif /* HTTPS_SUPPORT */
 #ifdef _WIN32
   if (mhd_winsock_inited_)

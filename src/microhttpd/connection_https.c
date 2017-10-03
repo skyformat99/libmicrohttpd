@@ -32,7 +32,11 @@
 #include "memorypool.h"
 #include "response.h"
 #include "mhd_mono_clock.h"
+#if 0
 #include <gnutls/gnutls.h>
+#else
+#include <openssl/ssl.h>
+#endif
 
 
 /**
@@ -50,6 +54,7 @@ run_tls_handshake (struct MHD_Connection *connection)
 
   if (MHD_TLS_CONNECTION_INIT == connection->state)
     {
+#if 0
       ret = gnutls_handshake (connection->tls_session);
       if (ret == GNUTLS_E_SUCCESS)
 	{
@@ -64,10 +69,31 @@ run_tls_handshake (struct MHD_Connection *connection)
 	  /* handshake not done */
 	  return MHD_YES;
 	}
+#else
+      ret = SSL_accept (connection->tls_session);
+      if (ret == 1)
+        {
+          /* set connection state to enable HTTP processing */
+          connection->state = MHD_CONNECTION_INIT;
+          MHD_update_last_activity_ (connection);
+          return MHD_NO;
+        }
+      if (ret < 0)
+      {
+        switch (SSL_get_error (connection->tls_session,
+                               ret))
+          {
+          case SSL_ERROR_WANT_READ:
+          case SSL_ERROR_WANT_WRITE:
+            /* handshake not done */
+            return MHD_YES;
+          }
+      }
+#endif
       /* handshake failed */
 #ifdef HAVE_MESSAGES
       MHD_DLOG (connection->daemon,
-		_("Error: received handshake message out of context\n"));
+                _("Error: received handshake message out of context\n"));
 #endif
       MHD_connection_close_ (connection,
                              MHD_REQUEST_TERMINATED_WITH_ERROR);
@@ -194,8 +220,12 @@ MHD_tls_connection_shutdown (struct MHD_Connection *connection)
     return MHD_NO;
 
   connection->tls_closed = true;
+#if 0
   return (GNUTLS_E_SUCCESS == gnutls_bye(connection->tls_session, GNUTLS_SHUT_WR)) ?
       MHD_YES : MHD_NO;
+#else
+  return (1 == SSL_shutdown(connection->tls_session) ? MHD_YES : MHD_NO);
+#endif
 }
 
 /* end of connection_https.c */
