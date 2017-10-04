@@ -4,5 +4,6 @@
 - Create SSL engine abstraction.
 - Port gnutls and openssl to this abstraction.
 - Extend API for use of openssl.
+- Update tests that use gcrypt and gnutls.
 - Pass all tests.
 - Update documentation.
