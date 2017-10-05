@@ -39,6 +39,60 @@ static bool gnutls_inited = false;
 static bool openssl_inited = false;
 #endif
 
+static const char *tls_engine_type_strings[MHD_TLS_ENGINE_TYPE_MAX] = {
+  "GnuTLS",
+  "OpenSSL"
+};
+
+#ifdef HAVE_MESSAGES
+
+void
+MHD_TLS_LOG_ENGINE (struct MHD_TLS_Engine *engine,
+                    const char *format,
+                    ...)
+{
+  va_list args;
+
+  va_start (args,
+            format);
+  MHD_TLS_log_engine_va (engine,
+                         format,
+                         args);
+  va_end (args);
+}
+
+void
+MHD_TLS_LOG_CONTEXT (struct MHD_TLS_Context *context,
+                     const char *format,
+                     ...)
+{
+  va_list args;
+
+  va_start (args,
+            format);
+  MHD_TLS_log_engine_va (context->engine,
+                         format,
+                         args);
+  va_end (args);
+}
+
+void
+MHD_TLS_LOG_SESSION (struct MHD_TLS_Session *session,
+                     const char *format,
+                     ...)
+{
+  va_list args;
+
+  va_start (args,
+            format);
+  MHD_TLS_log_engine_va (session->context->engine,
+                         format,
+                         args);
+  va_end (args);
+}
+
+#endif /* HAVE_MESSAGES */
+
 void
 MHD_TLS_global_init (void)
 {
@@ -48,7 +102,7 @@ MHD_TLS_global_init (void)
       MHD_TLS_gnutls_init ();
       gnutls_inited = true;
     }
-#endif
+#endif /* HAVE_GNUTLS */
 
 #ifdef HAVE_OPENSSL
   if (!openssl_inited)
@@ -56,7 +110,7 @@ MHD_TLS_global_init (void)
       MHD_TLS_openssl_init ();
       openssl_inited = true;
     }
-#endif
+#endif /* HAVE_OPENSSL */
 }
 
 void
@@ -68,7 +122,7 @@ MHD_TLS_global_deinit (void)
       MHD_TLS_gnutls_deinit ();
       gnutls_inited = false;
     }
-#endif
+#endif /* HAVE_GNUTLS */
 
 #ifdef HAVE_OPENSSL
   if (openssl_inited)
@@ -76,7 +130,7 @@ MHD_TLS_global_deinit (void)
       MHD_TLS_openssl_deinit ();
       openssl_inited = false;
     }
-#endif
+#endif /* HAVE_OPENSSL */
 }
 
 bool
@@ -87,12 +141,12 @@ MHD_TLS_has_engine (enum MHD_TLS_EngineType type)
 #ifdef HAVE_GNUTLS
     case MHD_TLS_ENGINE_TYPE_GNUTLS:
       return gnutls_inited;
-#endif
+#endif /* HAVE_GNUTLS */
 
 #ifdef HAVE_OPENSSL
     case MHD_TLS_ENGINE_TYPE_OPENSSL:
       return openssl_inited;
-#endif
+#endif /* HAVE_OPENSSL */
     }
 
   return false;
@@ -185,23 +239,32 @@ MHD_TLS_setup_engine (struct MHD_TLS_Engine * engine,
   if (NULL == engine)
     return false;
 
+  if (type > MHD_TLS_ENGINE_TYPE_MAX)
+    {
+      MHD_TLS_LOG_ENGINE (engine,
+                          _("Unknown TLS engine type %d\n"),
+                          type);
+      return false;
+    }
+
+  if (!MHD_TLS_has_engine (type))
+    {
+      MHD_TLS_LOG_ENGINE (engine,
+                          _("TLS engine %s not available\n"),
+                          tls_engine_type_strings[type]);
+      return false;
+    }
+
   if (MHD_TLS_ENGINE_TYPE_NONE != engine->type)
     {
       MHD_TLS_LOG_ENGINE (engine,
-                          _("Engine already set up\n"));
+                          _("TLS engine already set up\n"));
       return false;
     }
 
   switch (type)
     {
-    case MHD_TLS_ENGINE_TYPE_NONE:
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("Invalid engine type\n"));
-      return false;
-
     case MHD_TLS_ENGINE_TYPE_GNUTLS:
-#ifdef HAVE_GNUTLS
-      name = "GnuTLS";
       engine->init_context = MHD_TLS_gnutls_init_context;
       engine->deinit_context = MHD_TLS_gnutls_deinit_context;
       engine->set_context_certificate_cb = MHD_TLS_gnutls_set_context_certificate_cb;
@@ -220,15 +283,8 @@ MHD_TLS_setup_engine (struct MHD_TLS_Engine * engine,
       engine->session_read = MHD_TLS_gnutls_session_read;
       engine->session_write = MHD_TLS_gnutls_session_write;
       break;
-#else
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("GnuTLS is not available\n"));
-      return false;
-#endif
 
     case MHD_TLS_ENGINE_TYPE_OPENSSL:
-#ifdef HAVE_OPENSSL
-      name = "OpenSSL";
       engine->init_context = MHD_TLS_openssl_init_context;
       engine->deinit_context = MHD_TLS_openssl_deinit_context;
       engine->set_context_certificate_cb = MHD_TLS_openssl_set_context_certificate_cb;
@@ -247,19 +303,13 @@ MHD_TLS_setup_engine (struct MHD_TLS_Engine * engine,
       engine->session_read = MHD_TLS_openssl_session_read;
       engine->session_write = MHD_TLS_openssl_session_write;
       break;
-#else
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("OpenSSL is not available\n"));
-      return false;
-#endif
 
     default:
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("Unknown or unsupported engine type\n"));
+      assert (false);
       return false;
     }
 
-  engine->name = name;
+  engine->name = tls_engine_type_strings[type];
   engine->type = type;
 
   return true;

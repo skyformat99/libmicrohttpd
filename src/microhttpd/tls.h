@@ -69,7 +69,7 @@ enum MHD_TLS_ClientCertificateMode
   MHD_TLS_CLIENT_CERTIFICATE_MODE_REQUEST = 1,
 
   /**
-   * @brief Require a client certificate
+   * @brief Require a client certificate.
    */
   MHD_TLS_CLIENT_CERTIFICATE_MODE_REQUIRE = 2,
 
@@ -146,8 +146,6 @@ struct MHD_TLS_Engine
 
   /**
    * @brief Logging callback.
-   *
-   * If MHD_TLS_set_engine_logging_cb()
    */
   MHD_LogCallback log_cb;
 
@@ -234,6 +232,30 @@ struct MHD_TLS_Session
 #endif
   } d;
 };
+
+#ifdef HAVE_MESSAGES
+void
+MHD_TLS_LOG_ENGINE (struct MHD_TLS_Engine *engine,
+                    const char *format,
+                    ...);
+
+void
+MHD_TLS_LOG_CONTEXT (struct MHD_TLS_Context *context,
+                     const char *format,
+                     ...);
+
+void
+MHD_TLS_LOG_SESSION (struct MHD_TLS_Session *session,
+                     const char *format,
+                     ...);
+
+#else /* !HAVE_MESSAGES */
+
+#define MHD_TLS_LOG_ENGINE(engine, format, ...) do {} while(false)
+#define MHD_TLS_LOG_CONTEXT(context, format, ...) do {} while(false)
+#define MHD_TLS_LOG_SESSION(session, format, ...) do {} while(false)
+
+#endif /* !HAVE_MESSAGES */
 
 void
 MHD_TLS_global_init (void);
@@ -335,57 +357,6 @@ ssize_t MHD_TLS_session_read (struct MHD_TLS_Session * session,
 ssize_t MHD_TLS_session_write (struct MHD_TLS_Session * session,
                                const void *buf,
                                size_t size);
-
-#ifdef HAVE_MESSAGES
-static void
-MHD_TLS_LOG_ENGINE (struct MHD_TLS_Engine *engine,
-                    const char *format,
-                    ...)
-{
-  va_list args;
-
-  va_start (args,
-            format);
-  MHD_TLS_log_engine_va (engine,
-                         format,
-                         args);
-  va_end (args);
-}
-
-static void
-MHD_TLS_LOG_CONTEXT (struct MHD_TLS_Context *context,
-                     const char *format,
-                     ...)
-{
-  va_list args;
-
-  va_start (args,
-            format);
-  MHD_TLS_log_engine_va (context->engine,
-                         format,
-                         args);
-  va_end (args);
-}
-
-static void
-MHD_TLS_LOG_SESSION (struct MHD_TLS_Session *session,
-                     const char *format,
-                     ...)
-{
-  va_list args;
-
-  va_start (args,
-            format);
-  MHD_TLS_log_engine_va (session->context->engine,
-                         format,
-                         args);
-  va_end (args);
-}
-#else
-#define MHD_TLS_LOG_ENGINE(engine, format, ...) do {} while(false)
-#define MHD_TLS_LOG_CONTEXT(context, format, ...) do {} while(false)
-#define MHD_TLS_LOG_SESSION(session, format, ...) do {} while(false)
-#endif /* HAVE_MESSAGES */
 
 #endif /* HTTPS_SUPPORT */
 
