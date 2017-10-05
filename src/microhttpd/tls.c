@@ -336,11 +336,18 @@ MHD_TLS_create_context (struct MHD_TLS_Engine *engine)
   if (NULL == engine)
     return NULL;
 
+  if (MHD_TLS_ENGINE_TYPE_NONE == engine->type)
+    {
+      MHD_TLS_LOG_ENGINE (engine,
+                          _("TLS engine not set up\n"));
+      return NULL;
+    }
+
   context = MHD_calloc_ (1, sizeof (struct MHD_TLS_Context));
   if (NULL == context)
     {
       MHD_TLS_LOG_ENGINE (engine,
-                          _("Cannot allocate TLS context"));
+                          _("Cannot allocate TLS context\n"));
       return NULL;
     }
 
@@ -349,7 +356,7 @@ MHD_TLS_create_context (struct MHD_TLS_Engine *engine)
   if (!engine->init_context (context))
     {
       MHD_TLS_LOG_ENGINE (engine,
-                          _("Engine %s failed to initialize TLS context"),
+                          _("Engine %s failed to initialize TLS context\n"),
                           engine->name);
       free (context);
       return NULL;

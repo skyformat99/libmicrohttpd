@@ -154,7 +154,8 @@ MHD_TLS_openssl_init_context (struct MHD_TLS_Context *context)
   context->d.openssl.context = SSL_CTX_new (SSLv23_server_method ());
   if (NULL == context->d.openssl.context)
     {
-      MHD_TLS_LOG_CONTEXT (context, "Cannot allocate SSL context\n");
+      MHD_TLS_LOG_CONTEXT (context,
+                           _("Cannot allocate SSL context\n"));
       return false;
     }
 
@@ -365,7 +366,8 @@ MHD_TLS_openssl_init_session (struct MHD_TLS_Session * session)
   session->d.openssl.session = SSL_new (session->context->d.openssl.context);
   if (NULL == session ->d.openssl.session)
     {
-      MHD_TLS_LOG_SESSION(session, "Cannot allocate SSL session\n");
+      MHD_TLS_LOG_SESSION(session,
+                          _("Cannot allocate SSL session\n"));
       return false;
     }
 
@@ -395,7 +397,7 @@ MHD_TLS_openssl_session_handshake (struct MHD_TLS_Session * session)
       return MHD_TLS_IO_WANTS_WRITE;
     default:
       MHD_TLS_LOG_SESSION (session,
-                           _("Session handskake failed"));
+                           _("Session handskake failed\n"));
       return MHD_TLS_IO_UNKNOWN_ERROR;
     }
 }
@@ -417,7 +419,7 @@ MHD_TLS_openssl_session_close (struct MHD_TLS_Session * session)
       return MHD_TLS_IO_WANTS_WRITE;
     default:
       MHD_TLS_LOG_SESSION (session,
-                           _("Session close failed"));
+                           _("Session close failed\n"));
       return MHD_TLS_IO_UNKNOWN_ERROR;
     }
 }

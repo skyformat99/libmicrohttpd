@@ -126,7 +126,7 @@ MHD_TLS_gnutls_init_context (struct MHD_TLS_Context *context)
   if (GNUTLS_E_SUCCESS != result)
     {
       MHD_TLS_LOG_CONTEXT (context,
-                           "Cannot initialize priority cache: %s\n",
+                           _("Cannot initialize priority cache: %s\n"),
                            gnutls_strerror (result));
       goto cleanup;
     }
@@ -135,7 +135,7 @@ MHD_TLS_gnutls_init_context (struct MHD_TLS_Context *context)
   if (GNUTLS_E_SUCCESS != result)
     {
       MHD_TLS_LOG_CONTEXT (context,
-                           "Cannot initialize credentials: %s\n",
+                           _("Cannot initialize credentials: %s\n"),
                            gnutls_strerror (result));
       goto cleanup;
     }
@@ -416,7 +416,7 @@ MHD_TLS_gnutls_session_handshake (struct MHD_TLS_Session * session)
     return MHD_TLS_IO_WANTS_READ;
 
   MHD_TLS_LOG_SESSION (session,
-                       _("Session handskake failed"));
+                       _("Session handskake failed\n"));
   return MHD_TLS_IO_UNKNOWN_ERROR;
 }
 
@@ -434,7 +434,7 @@ MHD_TLS_gnutls_session_close (struct MHD_TLS_Session * session)
     return MHD_TLS_IO_WANTS_READ;
 
   MHD_TLS_LOG_SESSION (session,
-                       _("Session close failed"));
+                       _("Session close failed\n"));
   return MHD_TLS_IO_UNKNOWN_ERROR;
 }
 
@@ -463,8 +463,6 @@ MHD_TLS_gnutls_session_read (struct MHD_TLS_Session * session,
 {
   ssize_t result;
 
-  MHD_TLS_LOG_SESSION (session, "read gnutls\n");
-
   result = gnutls_record_recv (session->d.gnutls.session,
                                buf,
                                size);
@@ -486,8 +484,6 @@ MHD_TLS_gnutls_session_write (struct MHD_TLS_Session * session,
                                size_t size)
 {
   ssize_t result;
-
-  MHD_TLS_LOG_SESSION (session, "write gnutls\n");
 
   result = gnutls_record_send (session->d.gnutls.session,
                                buf,
