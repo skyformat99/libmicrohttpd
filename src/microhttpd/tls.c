@@ -202,6 +202,23 @@ MHD_TLS_setup_engine (struct MHD_TLS_Engine * engine,
     case MHD_TLS_ENGINE_TYPE_GNUTLS:
 #ifdef HAVE_GNUTLS
       name = "GnuTLS";
+      engine->init_context = MHD_TLS_gnutls_init_context;
+      engine->deinit_context = MHD_TLS_gnutls_deinit_context;
+      engine->set_context_certificate_cb = MHD_TLS_gnutls_set_context_certificate_cb;
+      engine->set_context_dh_params = MHD_TLS_gnutls_set_context_dh_params;
+      engine->set_context_certificate = MHD_TLS_gnutls_set_context_certificate;
+      engine->set_context_trust_certificate = MHD_TLS_gnutls_set_context_trust_certificate;
+      engine->set_context_client_certificate_mode = MHD_TLS_gnutls_set_context_client_certificate_mode;
+      engine->set_context_cipher_priorities = MHD_TLS_gnutls_set_context_cipher_priorities;
+      engine->init_session = MHD_TLS_gnutls_init_session;
+      engine->deinit_session = MHD_TLS_gnutls_deinit_session;
+      engine->session_handshake = MHD_TLS_gnutls_session_handshake;
+      engine->session_close = MHD_TLS_gnutls_session_close;
+      engine->session_wants_read = MHD_TLS_gnutls_session_wants_read;
+      engine->session_wants_write = MHD_TLS_gnutls_session_wants_write;
+      engine->session_read_pending = MHD_TLS_gnutls_session_read_pending;
+      engine->session_read = MHD_TLS_gnutls_session_read;
+      engine->session_write = MHD_TLS_gnutls_session_write;
       break;
 #else
       MHD_TLS_LOG_ENGINE (engine,
@@ -214,10 +231,21 @@ MHD_TLS_setup_engine (struct MHD_TLS_Engine * engine,
       name = "OpenSSL";
       engine->init_context = MHD_TLS_openssl_init_context;
       engine->deinit_context = MHD_TLS_openssl_deinit_context;
+      engine->set_context_certificate_cb = MHD_TLS_openssl_set_context_certificate_cb;
+      engine->set_context_dh_params = MHD_TLS_openssl_set_context_dh_params;
+      engine->set_context_certificate = MHD_TLS_openssl_set_context_certificate;
+      engine->set_context_trust_certificate = MHD_TLS_openssl_set_context_trust_certificate;
+      engine->set_context_client_certificate_mode = MHD_TLS_openssl_set_context_client_certificate_mode;
+      engine->set_context_cipher_priorities = MHD_TLS_openssl_set_context_cipher_priorities;
       engine->init_session = MHD_TLS_openssl_init_session;
       engine->deinit_session = MHD_TLS_openssl_deinit_session;
+      engine->session_handshake = MHD_TLS_openssl_session_handshake;
+      engine->session_close = MHD_TLS_openssl_session_close;
       engine->session_wants_read = MHD_TLS_openssl_session_wants_read;
       engine->session_wants_write = MHD_TLS_openssl_session_wants_write;
+      engine->session_read_pending = MHD_TLS_openssl_session_read_pending;
+      engine->session_read = MHD_TLS_openssl_session_read;
+      engine->session_write = MHD_TLS_openssl_session_write;
       break;
 #else
       MHD_TLS_LOG_ENGINE (engine,

@@ -32,11 +32,6 @@
 #include "memorypool.h"
 #include "response.h"
 #include "mhd_mono_clock.h"
-#if 0
-#include <gnutls/gnutls.h>
-#else
-#include <openssl/ssl.h>
-#endif
 
 
 /**

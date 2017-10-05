@@ -2567,18 +2567,18 @@ internal_add_connection (struct MHD_Daemon *daemon,
             errno = error;
             return MHD_NO;
         }
-#if 0
-      gnutls_transport_set_ptr (connection->tls_session,
+#ifdef HAVE_GNUTLS
+      gnutls_transport_set_ptr (connection->tls_session->d.gnutls.session,
 				(gnutls_transport_ptr_t) connection);
-      gnutls_transport_set_pull_function (connection->tls_session,
+      gnutls_transport_set_pull_function (connection->tls_session->d.gnutls.session,
 					  (gnutls_pull_func) &recv_param_adapter);
-      gnutls_transport_set_push_function (connection->tls_session,
+      gnutls_transport_set_push_function (connection->tls_session->d.gnutls.session,
 					  (gnutls_push_func) &send_param_adapter);
-#else
+#endif
       error = 0;
-#if 0
+#ifdef HAVE_OPENSSL
       if (0 == error &&
-          1 != SSL_set_fd (connection->tls_session, client_socket))
+          1 != SSL_set_fd (connection->tls_session->d.openssl.session, client_socket))
         {
 #ifdef HAVE_MESSAGES
           MHD_DLOG (connection->daemon,
@@ -2597,7 +2597,6 @@ internal_add_connection (struct MHD_Daemon *daemon,
 	  errno = error;
  	  return MHD_NO;
         }
-#endif
 #endif
 #else  /* ! HTTPS_SUPPORT */
       eno = EINVAL;

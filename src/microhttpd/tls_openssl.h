@@ -34,21 +34,6 @@ struct MHD_OpenSSL_Context
    * @brief OpenSSL context.
    */
   SSL_CTX *context;
-#if 0
-  /**
-   * @brief Desired cipher algorithms.
-   *
-   * It must follow the format expected by @c SSL_CTX_set_cipher_list() and
-   * @c SSL_set_cipher_list().
-   */
-  char *priority_list;
-#endif
-#if 0
-  /**
-   * @brief Our Diffie-Hellman parameters in memory.
-   */
-  DH *dh_params;
-#endif
 };
 
 struct MHD_OpenSSL_Session
@@ -57,17 +42,6 @@ struct MHD_OpenSSL_Session
    * @brief OpenSSL session.
    */
   SSL *session;
-#if 0
-  /**
-   * @brief Function that can be used to obtain the certificate.
-   *
-   * Needed for SNI support.
-   *
-   * @see #MHD_OPTION_HTTPS_CERT_CALLBACK
-   */
-  int (*cert_callback)(SSL *ssl,
-                       void *arg);
-#endif
 };
 
 void
@@ -98,6 +72,10 @@ MHD_TLS_openssl_set_context_certificate (struct MHD_TLS_Context *context,
 bool
 MHD_TLS_openssl_set_context_trust_certificate (struct MHD_TLS_Context *context,
                                                const char *certificate);
+
+bool
+MHD_TLS_openssl_set_context_client_certificate_mode (struct MHD_TLS_Context *context,
+                                                     enum MHD_TLS_ClientCertificateMode mode);
 
 bool
 MHD_TLS_openssl_set_context_cipher_priorities (struct MHD_TLS_Context *context,

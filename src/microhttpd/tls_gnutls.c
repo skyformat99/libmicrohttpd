@@ -153,10 +153,6 @@ cleanup:
 void
 MHD_TLS_gnutls_deinit_context (struct MHD_TLS_Context * context)
 {
-#if 0
-  if (NULL != context->d.gnutls.dh_params)
-    gnutls_dh_params_deinit (context->d.gnutls.dh_params);
-#endif
   gnutls_certificate_free_credentials (context->d.gnutls.x509_cred);
   gnutls_priority_deinit (context->d.gnutls.priority_cache);
 }
@@ -222,6 +218,52 @@ MHD_TLS_gnutls_set_context_certificate (struct MHD_TLS_Context *context,
                                         const char *private_key,
                                         const char *password)
 {
+  int result;
+  gnutls_datum_t key;
+  gnutls_datum_t cert;
+
+  cert.data = (unsigned char *) certificate;
+  cert.size = strlen (certificate);
+  key.data = (unsigned char *)private_key;
+  key.size = strlen (private_key);
+
+  if (NULL != password)
+    {
+#if GNUTLS_VERSION_NUMBER >= 0x030111
+      result = gnutls_certificate_set_x509_key_mem2 (context->d.gnutls.x509_cred,
+                                                     &cert,
+                                                     &key,
+                                                     GNUTLS_X509_FMT_PEM,
+                                                     password,
+                                                     0);
+#else
+#ifdef HAVE_MESSAGES
+      MHD_TLS_LOG_CONTEXT (context,
+                           _("Failed to setup x509 certificate/key: pre 3.X.X version " \
+                             "of GnuTLS does not support setting key password\n"));
+#endif
+      return false;
+#endif
+    }
+  else
+    {
+      result = gnutls_certificate_set_x509_key_mem (context->d.gnutls.x509_cred,
+                                                    &cert,
+                                                    &key,
+                                                    GNUTLS_X509_FMT_PEM);
+    }
+
+  if (GNUTLS_E_SUCCESS != result)
+    {
+#ifdef HAVE_MESSAGES
+      MHD_TLS_LOG_CONTEXT (context,
+                           _("GnuTLS failed to setup x509 certificate/key: %s\n"),
+                           gnutls_strerror (result));
+#endif
+      return false;
+    }
+
+  return true;
 }
 
 bool
@@ -421,6 +463,8 @@ MHD_TLS_gnutls_session_read (struct MHD_TLS_Session * session,
 {
   ssize_t result;
 
+  MHD_TLS_LOG_SESSION (session, "read gnutls\n");
+
   result = gnutls_record_recv (session->d.gnutls.session,
                                buf,
                                size);
@@ -442,6 +486,8 @@ MHD_TLS_gnutls_session_write (struct MHD_TLS_Session * session,
                                size_t size)
 {
   ssize_t result;
+
+  MHD_TLS_LOG_SESSION (session, "write gnutls\n");
 
   result = gnutls_record_send (session->d.gnutls.session,
                                buf,

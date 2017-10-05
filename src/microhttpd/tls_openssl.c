@@ -40,24 +40,6 @@ pthreads_locking_callback (int mode,
                            const char *file,
                            int line)
 {
-# if 0
-  fprintf (stderr,
-           "thread=%4d mode=%s lock=%s %s:%d\n",
-           CRYPTO_thread_id(),
-           (mode & CRYPTO_LOCK) ? "l" : "u",
-           (type & CRYPTO_READ) ? "r" : "w",
-           file,
-           line);
-# endif
-# if 0
-  if (CRYPTO_LOCK_SSL_CERT == type)
-    fprintf(stderr,
-            "(t,m,f,l) %ld %d %s %d\n",
-            CRYPTO_thread_id(),
-            mode,
-            file,
-            line);
-# endif
   if (mode & CRYPTO_LOCK)
     pthread_mutex_lock (&locks[type]);
   else
@@ -117,7 +99,7 @@ win32_locking_callback (int mode,
 static unsigned long
 win32_thread_id (void)
 {
-  return (unsigned long)GetCurrentThreadId ();
+  return (unsigned long) GetCurrentThreadId ();
 }
 
 static void
@@ -189,9 +171,9 @@ bool
 MHD_TLS_openssl_set_context_certificate_cb (struct MHD_TLS_Context *context,
                                             MHD_TLS_GetCertificate cb)
 {
-  SSL_CTX_set_cert_cb(context->d.openssl.context,
-                      (int (*)(SSL *, void *))cb,
-                      NULL);
+  SSL_CTX_set_cert_cb (context->d.openssl.context,
+                       (int (*)(SSL *, void *))cb,
+                       NULL);
   return true;
 }
 
@@ -236,6 +218,62 @@ MHD_TLS_openssl_set_context_certificate (struct MHD_TLS_Context *context,
                                          const char *private_key,
                                          const char *password)
 {
+  X509 *cert = NULL;
+  EVP_PKEY *key = NULL;
+  BIO *bio;
+
+  bio = BIO_new_mem_buf (certificate, -1);
+  if (NULL != bio)
+    {
+      cert = PEM_read_bio_X509 (bio,
+                                NULL,
+                                0,
+                                NULL);
+      BIO_free_all (bio);
+    }
+  if (NULL == cert)
+    {
+	    MHD_TLS_LOG_CONTEXT (context,
+                           _("Bad server certificate format\n"));
+      return false;
+    }
+
+  if (!SSL_CTX_use_certificate (context->d.openssl.context,
+                                cert))
+    {
+	    MHD_TLS_LOG_CONTEXT (context,
+                           _("Cannot set server certificate\n"));
+      X509_free (cert);
+      return false;
+	}
+  X509_free (cert);
+
+  bio = BIO_new_mem_buf (private_key, -1);
+  if (NULL != bio)
+    {
+      key = PEM_read_bio_PrivateKey (bio,
+                                     NULL,
+                                     NULL,
+                                     (void *)password);
+      BIO_free_all (bio);
+    }
+  if (NULL == key)
+    {
+	    MHD_TLS_LOG_CONTEXT (context,
+                           _("Bad server key format or invalid password\n"));
+      return false;
+    }
+  if (!SSL_CTX_use_PrivateKey (context->d.openssl.context,
+                               key))
+    {
+      MHD_TLS_LOG_CONTEXT (context,
+                           _("Cannot set server private key\n"));
+      EVP_PKEY_free (key);
+      return false;
+    }
+  EVP_PKEY_free (key);
+
+  return true;
 }
 
 bool
@@ -270,6 +308,37 @@ MHD_TLS_openssl_set_context_trust_certificate (struct MHD_TLS_Context *context,
       return false;
     }
   X509_free (cert);
+
+  return true;
+}
+
+bool
+MHD_TLS_openssl_set_context_client_certificate_mode (struct MHD_TLS_Context *context,
+                                                     enum MHD_TLS_ClientCertificateMode mode)
+{
+  int openssl_mode;
+
+  switch (mode)
+    {
+    case MHD_TLS_CLIENT_CERTIFICATE_MODE_DISABLE:
+      openssl_mode = SSL_VERIFY_NONE;
+      break;
+    case MHD_TLS_CLIENT_CERTIFICATE_MODE_REQUEST:
+      openssl_mode = SSL_VERIFY_PEER;
+      break;
+    case MHD_TLS_CLIENT_CERTIFICATE_MODE_REQUIRE:
+      openssl_mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+      break;
+    default:
+      MHD_TLS_LOG_CONTEXT (context,
+                           _("Unsupported client certificate mode %d\n"),
+                           mode);
+      return false;
+    }
+
+  SSL_CTX_set_verify (context->d.openssl.context,
+                      openssl_mode,
+                      NULL);
 
   return true;
 }
@@ -336,17 +405,21 @@ MHD_TLS_openssl_session_close (struct MHD_TLS_Session * session)
 {
   int result;
 
-  result = gnutls_bye (session->d.gnutls.session, GNUTLS_SHUT_WR);
-  if (GNUTLS_E_SUCCESS == result)
+  result = SSL_shutdown (session->d.openssl.session);
+  if (result == 1)
     return 0;
 
-  if ((GNUTLS_E_AGAIN == result) ||
-      (GNUTLS_E_INTERRUPTED == result))
-    return MHD_TLS_IO_WANTS_READ;
-
-  MHD_TLS_LOG_SESSION (session,
-                       _("Session close failed"));
-  return MHD_TLS_IO_UNKNOWN_ERROR;
+  switch (SSL_get_error (session->d.openssl.session, result))
+    {
+    case SSL_ERROR_WANT_READ:
+      return MHD_TLS_IO_WANTS_READ;
+    case SSL_ERROR_WANT_WRITE:
+      return MHD_TLS_IO_WANTS_WRITE;
+    default:
+      MHD_TLS_LOG_SESSION (session,
+                           _("Session close failed"));
+      return MHD_TLS_IO_UNKNOWN_ERROR;
+    }
 }
 
 bool

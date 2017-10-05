@@ -46,23 +46,6 @@ struct MHD_GnuTLS_Context
    * @brief Client certificate mode.
    */
   enum MHD_TLS_ClientCertificateMode client_cert_mode;
-#if 0
-#if GNUTLS_VERSION_MAJOR >= 3
-  /**
-   * @brief Function that can be used to obtain the certificate.
-   *
-   * Needed for SNI support.
-   *
-   * @see #MHD_OPTION_HTTPS_CERT_CALLBACK
-   */
-  gnutls_certificate_retrieve_function2 *cert_callback;
-#endif
-
-  /**
-   * @brief Our Diffie-Hellman parameters.
-   */
-  gnutls_dh_params_t dh_params;
-#endif
 };
 
 struct MHD_GnuTLS_Session
