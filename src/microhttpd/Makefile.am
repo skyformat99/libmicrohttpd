@@ -134,7 +134,16 @@ endif
 
 if ENABLE_HTTPS
 libmicrohttpd_la_SOURCES += \
-  connection_https.c connection_https.h
+  connection_https.c connection_https.h \
+  tls.c tls.h
+if HAVE_GNUTLS
+libmicrohttpd_la_SOURCES += \
+  tls_gnutls.c tls_gnutls.h
+endif
+if HAVE_OPENSSL
+libmicrohttpd_la_SOURCES += \
+  tls_openssl.c tls_openssl.h
+endif
 endif
 
 

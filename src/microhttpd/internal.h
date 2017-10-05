@@ -29,18 +29,8 @@
 
 #include "mhd_options.h"
 #include "platform.h"
+#include "tls.h"
 #include "microhttpd.h"
-#ifdef HTTPS_SUPPORT
-#if 0
-#include <gnutls/gnutls.h>
-#if GNUTLS_VERSION_MAJOR >= 3
-#include <gnutls/abstract.h>
-#endif
-#else
-#include <openssl/ssl.h>
-#include <openssl/x509.h>
-#endif
-#endif /* HTTPS_SUPPORT */
 
 #ifdef HAVE_STDBOOL_H
 #include <stdbool.h>
@@ -971,11 +961,7 @@ struct MHD_Connection
   /**
    * State required for HTTPS/SSL/TLS support.
    */
-#if 0
-  gnutls_session_t tls_session;
-#else
-  SSL *tls_session;
-#endif
+  struct MHD_TLS_Session * tls_session;
 
   /**
    * Memory location to return for protocol session info.
@@ -1614,54 +1600,25 @@ struct MHD_Daemon
 #endif /* UPGRADE_SUPPORT */
 
   /**
-   * SSL context.
+   * @brief TLS engine to use.
    */
-#if 0
-#else
-  SSL_CTX *ssl_ctx;
-#endif
-  /**
-   * Desired cipher algorithms.
-   */
-#if 0
-  gnutls_priority_t priority_cache;
-#else
-  char *priority_list;
-#endif
+  enum MHD_TLS_EngineType tls_engine_type;
 
   /**
-   * What kind of credentials are we offering
-   * for SSL/TLS?
+   * TLS engine.
    */
-#if 0
-  gnutls_credentials_type_t cred_type;
-#endif
+  struct MHD_TLS_Engine *tls_engine;
 
   /**
-   * Server x509 credentials
+   * TLS context.
    */
-#if 0
-  gnutls_certificate_credentials_t x509_cred;
-#endif
+  struct MHD_TLS_Context *tls_context;
 
   /**
-   * Diffie-Hellman parameters
+   * Function that can be used to obtain the certificate. Needed
+   * for SNI support. See #MHD_OPTION_HTTPS_CERT_CALLBACK.
    */
-#if 0
-  gnutls_dh_params_t dh_params;
-#endif
-
-#if 0
-#if GNUTLS_VERSION_MAJOR >= 3
-  /**
-   * Function that can be used to obtain the certificate.  Needed
-   * for SNI support.  See #MHD_OPTION_HTTPS_CERT_CALLBACK.
-   */
-  gnutls_certificate_retrieve_function2 *cert_callback;
-#endif
-#else
-  int (*cert_callback)(SSL *ssl, void *arg);
-#endif
+  MHD_TLS_GetCertificate cert_callback;
 
   /**
    * Pointer to our SSL/TLS key (in ASCII) in memory.
@@ -1682,20 +1639,6 @@ struct MHD_Daemon
    * Pointer to our SSL/TLS certificate authority (in ASCII) in memory.
    */
   const char *https_mem_trust;
-
-  /**
-   * Our Diffie-Hellman parameters in memory.
-   */
-#if 0
-  gnutls_dh_params_t https_mem_dhparams;
-
-  /**
-   * true if we have initialized @e https_mem_dhparams.
-   */
-  bool have_dhparams;
-#else
-  DH *https_mem_dhparams;
-#endif
 
 #endif /* HTTPS_SUPPORT */
 

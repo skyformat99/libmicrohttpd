@@ -1473,19 +1473,12 @@ MHD_connection_update_event_loop_info (struct MHD_Connection *connection)
         {
 #ifdef HTTPS_SUPPORT
 	case MHD_TLS_CONNECTION_INIT:
-#if 0
-	  if (0 == gnutls_record_get_direction (connection->tls_session))
+          if (MHD_TLS_session_wants_read (connection->tls_session))
             connection->event_loop_info = MHD_EVENT_LOOP_INFO_READ;
-	  else
-            connection->event_loop_info = MHD_EVENT_LOOP_INFO_WRITE;
-#else
-          if (SSL_want_read (connection->tls_session))
-            connection->event_loop_info = MHD_EVENT_LOOP_INFO_READ;
-          else if (SSL_want_write (connection->tls_session))
+          else if (MHD_TLS_session_wants_write (connection->tls_session))
             connection->event_loop_info = MHD_EVENT_LOOP_INFO_WRITE;
           else
             MHD_PANIC(_("TLS session not reading nor writing\n"));
-#endif
 	  break;
 #endif /* HTTPS_SUPPORT */
         case MHD_CONNECTION_INIT:

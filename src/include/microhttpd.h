@@ -866,6 +866,31 @@ struct MHD_Response;
  */
 struct MHD_PostProcessor;
 
+/**
+ * @brief Supported TLS engines.
+ */
+enum MHD_TLS_EngineType
+{
+  /**
+   * @brief No TLS engine.
+   */
+  MHD_TLS_ENGINE_TYPE_NONE = 0,
+
+  /**
+   * @brief GnuTLS-based TLS engine.
+   */
+  MHD_TLS_ENGINE_TYPE_GNUTLS = 1,
+
+  /**
+   * @brief OpenSSL-based TLS engine.
+   */
+  MHD_TLS_ENGINE_TYPE_OPENSSL = 2,
+
+  /**
+   * @brief Upper-bound value.
+   */
+  MHD_TLS_ENGINE_TYPE_MAX = MHD_TLS_ENGINE_TYPE_OPENSSL
+};
 
 /**
  * @brief Flags for the `struct MHD_Daemon`.
@@ -1282,6 +1307,7 @@ enum MHD_OPTION
    * Daemon credentials type.
    * Followed by an argument of type
    * `gnutls_credentials_type_t`.
+   * TODO: update for TLS engine architecture.
    */
   MHD_OPTION_HTTPS_CRED_TYPE = 10,
 
@@ -1486,9 +1512,26 @@ enum MHD_OPTION
    * servers as it may potentially lower level of protection.
    * This option should be followed by an `int` argument.
    */
-  MHD_OPTION_STRICT_FOR_CLIENT = 29
-};
+  MHD_OPTION_STRICT_FOR_CLIENT = 29,
 
+  /**
+   * Set the TLS engine type to use for HTTPS connections. See
+   * #MHD_TLS_EngineType for allowed values. For compatibility with the
+   * previous versions of MHD, the default engine is GnuTLS. If it's not
+   * available, no default is set. If you intend to use another TLS engine
+   * such as OpenSSL, you @b MUST select the engine explicitly as it will
+   * change the behavior of certain options. For example, the
+   * #MHD_OPTION_HTTPS_CERT_CALLBACK will expect a callback with a different
+   * signature, and #MHD_CONNECTION_INFO_TLS_SESSION will return an
+   * OpenSSL session instead of a GnuTLS one.
+   *
+   * You must set this option before any other HTTPS-related option. Indeed,
+   * the first time an HTTPS option is met, we create the TLS engine based on
+   * the currently selected engine type. If this option has not been met yet,
+   * we use the default GnuTLS engine if available, or fail otherwise.
+   */
+    MHD_OPTION_TLS_ENGINE_TYPE = 30
+};
 
 /**
  * Entry in an #MHD_OPTION_ARRAY.
@@ -1752,8 +1795,8 @@ enum MHD_ConnectionInfoType
 
   /**
    * Get the gnuTLS client certificate handle.  Dysfunctional (never
-   * implemented, deprecated).  Use #MHD_CONNECTION_INFO_GNUTLS_SESSION
-   * to get the `gnutls_session_t` and then call
+   * implemented, deprecated).  Use #MHD_CONNECTION_INFO_TLS_SESSION
+   * when using the GnuTLS engine to get the `gnutls_session_t` and then call
    * gnutls_certificate_get_peers().
    */
   MHD_CONNECTION_INFO_GNUTLS_CLIENT_CERT,

@@ -54,42 +54,21 @@ run_tls_handshake (struct MHD_Connection *connection)
 
   if (MHD_TLS_CONNECTION_INIT == connection->state)
     {
-#if 0
-      ret = gnutls_handshake (connection->tls_session);
-      if (ret == GNUTLS_E_SUCCESS)
-	{
-	  /* set connection state to enable HTTP processing */
-	  connection->state = MHD_CONNECTION_INIT;
-	  MHD_update_last_activity_ (connection);
-	  return MHD_NO;
-	}
-      if ( (GNUTLS_E_AGAIN == ret) ||
-	   (GNUTLS_E_INTERRUPTED == ret) )
-	{
-	  /* handshake not done */
-	  return MHD_YES;
-	}
-#else
-      ret = SSL_accept (connection->tls_session);
-      if (ret == 1)
+      ret = MHD_TLS_session_handshake (connection->tls_session);
+      if (ret == 0)
         {
           /* set connection state to enable HTTP processing */
           connection->state = MHD_CONNECTION_INIT;
           MHD_update_last_activity_ (connection);
           return MHD_NO;
         }
-      if (ret < 0)
-      {
-        switch (SSL_get_error (connection->tls_session,
-                               ret))
-          {
-          case SSL_ERROR_WANT_READ:
-          case SSL_ERROR_WANT_WRITE:
-            /* handshake not done */
-            return MHD_YES;
-          }
-      }
-#endif
+      switch (ret)
+        {
+        case MHD_TLS_IO_WANTS_READ:
+        case MHD_TLS_IO_WANTS_WRITE:
+          /* handshake not done */
+          return MHD_YES;
+        }
       /* handshake failed */
 #ifdef HAVE_MESSAGES
       MHD_DLOG (connection->daemon,
@@ -220,12 +199,7 @@ MHD_tls_connection_shutdown (struct MHD_Connection *connection)
     return MHD_NO;
 
   connection->tls_closed = true;
-#if 0
-  return (GNUTLS_E_SUCCESS == gnutls_bye(connection->tls_session, GNUTLS_SHUT_WR)) ?
-      MHD_YES : MHD_NO;
-#else
-  return (1 == SSL_shutdown(connection->tls_session) ? MHD_YES : MHD_NO);
-#endif
+  return (0 == MHD_TLS_session_close (connection->tls_session) ? MHD_YES : MHD_NO);
 }
 
 /* end of connection_https.c */
