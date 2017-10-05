@@ -270,6 +270,16 @@ struct MHD_TLS_Engine *
 MHD_TLS_create_engine (void);
 
 void
+MHD_TLS_del_engine (struct MHD_TLS_Engine *engine);
+
+bool
+MHD_TLS_setup_engine (struct MHD_TLS_Engine *engine,
+                      enum MHD_TLS_EngineType type);
+
+enum MHD_TLS_EngineType
+MHD_TLS_get_engine_type (struct MHD_TLS_Engine *engine);
+
+void
 MHD_TLS_set_engine_logging_cb (struct MHD_TLS_Engine *engine,
                                MHD_LogCallback cb,
                                void *data,
@@ -283,13 +293,6 @@ void
 MHD_TLS_log_engine_va (struct MHD_TLS_Engine *engine,
                        const char *format,
                        va_list args);
-
-bool
-MHD_TLS_setup_engine (struct MHD_TLS_Engine *engine,
-                      enum MHD_TLS_EngineType type);
-
-void
-MHD_TLS_del_engine (struct MHD_TLS_Engine *engine);
 
 struct MHD_TLS_Context *
 MHD_TLS_create_context (struct MHD_TLS_Engine *engine);

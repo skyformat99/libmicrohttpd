@@ -168,66 +168,16 @@ MHD_TLS_create_engine (void)
 }
 
 void
-MHD_TLS_set_engine_logging_cb (struct MHD_TLS_Engine *engine,
-                               MHD_LogCallback cb,
-                               void *data,
-                               MHD_TLS_FreeData free_data_cb)
+MHD_TLS_del_engine (struct MHD_TLS_Engine *engine)
 {
   if (NULL == engine)
     return;
 
-  if (NULL != engine->log_data &&
-      NULL != engine->free_log_data_cb)
-    {
-      engine->free_log_data_cb (engine->log_data);
-      engine->log_data = NULL;
-      engine->free_log_data_cb = NULL;
-    }
-
-  if (NULL != cb)
-    {
-      engine->log_cb = cb;
-      engine->log_data = data;
-      engine->free_log_data_cb = free_data_cb;
-    }
-  else
-    {
-      engine->log_cb = NULL;
-      assert (NULL == engine->log_data);
-      assert (NULL == engine->free_log_data_cb);
-    }
-}
-
-void
-MHD_TLS_log_engine (struct MHD_TLS_Engine *engine,
-                    const char *format,
-                    ...)
-{
-  if (NULL == engine)
-    return;
-
-  if (engine->log_cb != NULL)
-    {
-      va_list args;
-
-      va_start (args, format);
-      engine->log_cb (engine->log_data, format, args);
-      va_end (args);
-    }
-}
-
-void
-MHD_TLS_log_engine_va (struct MHD_TLS_Engine *engine,
-                       const char *format,
-                       va_list args)
-{
-  if (NULL == engine)
-    return;
-
-  if (engine->log_cb != NULL)
-    {
-      engine->log_cb (engine->log_data, format, args);
-    }
+  MHD_TLS_set_engine_logging_cb (engine,
+                                 NULL,
+                                 NULL,
+                                 NULL);
+  free (engine);
 }
 
 bool
@@ -315,17 +265,76 @@ MHD_TLS_setup_engine (struct MHD_TLS_Engine * engine,
   return true;
 }
 
+enum MHD_TLS_EngineType
+MHD_TLS_get_engine_type (struct MHD_TLS_Engine *engine)
+{
+  if (engine == NULL)
+    return MHD_TLS_ENGINE_TYPE_NONE;
+
+  return engine->type;
+}
+
 void
-MHD_TLS_del_engine (struct MHD_TLS_Engine *engine)
+MHD_TLS_set_engine_logging_cb (struct MHD_TLS_Engine *engine,
+                               MHD_LogCallback cb,
+                               void *data,
+                               MHD_TLS_FreeData free_data_cb)
 {
   if (NULL == engine)
     return;
 
-  MHD_TLS_set_engine_logging_cb (engine,
-                                 NULL,
-                                 NULL,
-                                 NULL);
-  free (engine);
+  if (NULL != engine->log_data &&
+      NULL != engine->free_log_data_cb)
+    {
+      engine->free_log_data_cb (engine->log_data);
+      engine->log_data = NULL;
+      engine->free_log_data_cb = NULL;
+    }
+
+  if (NULL != cb)
+    {
+      engine->log_cb = cb;
+      engine->log_data = data;
+      engine->free_log_data_cb = free_data_cb;
+    }
+  else
+    {
+      engine->log_cb = NULL;
+      engine->log_data = NULL;
+      engine->free_log_data_cb = NULL;
+    }
+}
+
+void
+MHD_TLS_log_engine (struct MHD_TLS_Engine *engine,
+                    const char *format,
+                    ...)
+{
+  if (NULL == engine)
+    return;
+
+  if (engine->log_cb != NULL)
+    {
+      va_list args;
+
+      va_start (args, format);
+      engine->log_cb (engine->log_data, format, args);
+      va_end (args);
+    }
+}
+
+void
+MHD_TLS_log_engine_va (struct MHD_TLS_Engine *engine,
+                       const char *format,
+                       va_list args)
+{
+  if (NULL == engine)
+    return;
+
+  if (engine->log_cb != NULL)
+    {
+      engine->log_cb (engine->log_data, format, args);
+    }
 }
 
 struct MHD_TLS_Context *
