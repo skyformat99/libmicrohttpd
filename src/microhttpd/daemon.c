@@ -2536,68 +2536,32 @@ internal_add_connection (struct MHD_Daemon *daemon,
     }
   else
     {
-      int error = 0;
-
 #ifdef HTTPS_SUPPORT
       connection->recv_cls = &recv_tls_adapter;
       connection->send_cls = &send_tls_adapter;
       connection->state = MHD_TLS_CONNECTION_INIT;
       MHD_set_https_callbacks (connection);
-      connection->tls_session = MHD_TLS_create_session (connection->daemon->tls_context);
+      connection->tls_session = MHD_TLS_create_session (connection->daemon->tls_context,
+                                                        (MHD_TLS_ReadCallback) &recv_param_adapter,
+                                                        (MHD_TLS_WriteCallback) &send_param_adapter,
+                                                        connection,
+                                                        NULL);
       if (NULL == connection->tls_session)
         {
 #ifdef HAVE_MESSAGES
-            MHD_DLOG (connection->daemon,
-                      _("Failed to create TLS session\n"));
-#endif
-            error = ENOMEM;
-        }
-      if (error == 0)
-        {
-        }
-      if (error != 0)
-        {
-            MHD_socket_close_chk_ (client_socket);
-            MHD_ip_limit_del (daemon,
-                              addr,
-                              addrlen);
-            free (connection->addr);
-            MHD_TLS_del_session (connection->tls_session);
-            free (connection);
-            errno = error;
-            return MHD_NO;
-        }
-#ifdef HAVE_GNUTLS
-      gnutls_transport_set_ptr (connection->tls_session->d.gnutls.session,
-				(gnutls_transport_ptr_t) connection);
-      gnutls_transport_set_pull_function (connection->tls_session->d.gnutls.session,
-					  (gnutls_pull_func) &recv_param_adapter);
-      gnutls_transport_set_push_function (connection->tls_session->d.gnutls.session,
-					  (gnutls_push_func) &send_param_adapter);
-#endif
-      error = 0;
-#ifdef HAVE_OPENSSL
-      if (0 == error &&
-          1 != SSL_set_fd (connection->tls_session->d.openssl.session, client_socket))
-        {
-#ifdef HAVE_MESSAGES
           MHD_DLOG (connection->daemon,
-                    _("Failed to connect SSL session to socket\n"));
+                    _("Failed to create TLS session\n"));
 #endif
-          error = EINVAL;
-        }
-      if (0 != error)
-        {
           MHD_socket_close_chk_ (client_socket);
           MHD_ip_limit_del (daemon,
                             addr,
                             addrlen);
+          MHD_TLS_del_session (connection->tls_session);
           free (connection->addr);
           free (connection);
-	  errno = error;
- 	  return MHD_NO;
+          errno = ENOMEM;
+          return MHD_NO;
         }
-#endif
 #else  /* ! HTTPS_SUPPORT */
       eno = EINVAL;
       goto cleanup;
@@ -5035,7 +4999,7 @@ parse_options_va (struct MHD_Daemon *daemon,
           if (!MHD_setup_tls_context (daemon))
             return MHD_NO;
           daemon->cert_callback = va_arg (ap,
-                                          MHD_TLS_GetCertificate);
+                                          MHD_TLS_GetCertificateCallback);
           break;
         case MHD_OPTION_TLS_ENGINE_TYPE:
           {

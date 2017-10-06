@@ -42,16 +42,36 @@ struct MHD_TLS_Context;
 struct MHD_TLS_Session;
 
 /**
- * @brief Callback to free data.
+ * @brief Callback to free opaque data.
  */
 typedef void
-(*MHD_TLS_FreeData)(void *data);
+(*MHD_TLS_FreeCallback)(void *data);
 
 /**
- * @brief Callback to get certificate.
+ * @brief Callback to get a certificate.
  */
 typedef int
-(*MHD_TLS_GetCertificate)();
+(*MHD_TLS_GetCertificateCallback)();
+
+/**
+ * @brief Callback to read data from the transport layer.
+ *
+ * @return -1 on error and set errno, the number of bytes read on success.
+ */
+typedef ssize_t
+(*MHD_TLS_ReadCallback) (void *context,
+                         void *buf,
+                         size_t size);
+
+/**
+ * @brief Callback to write data to the transport layer.
+ *
+ * @return -1 on error and set errno, the number of bytes written on success.
+ */
+typedef ssize_t
+(*MHD_TLS_WriteCallback) (void *context,
+                          const void *buf,
+                          size_t size);
 
 /**
  * @brief Client certificate mode.
@@ -157,7 +177,7 @@ struct MHD_TLS_Engine
   /**
    * @brief Function to free @c log_data.
    */
-  MHD_TLS_FreeData free_log_data_cb;
+  MHD_TLS_FreeCallback free_log_data_cb;
 
   /* The following fields are set by @c MHD_TLS_setup_engine(). */
 
@@ -165,7 +185,7 @@ struct MHD_TLS_Engine
   void (*deinit_context) (struct MHD_TLS_Context * context);
 
   bool (*set_context_certificate_cb) (struct MHD_TLS_Context *context,
-                                      MHD_TLS_GetCertificate cb);
+                                      MHD_TLS_GetCertificateCallback cb);
 
   bool (*set_context_dh_params) (struct MHD_TLS_Context *context,
                                  const char *params);
@@ -184,7 +204,10 @@ struct MHD_TLS_Engine
   bool (*set_context_cipher_priorities) (struct MHD_TLS_Context *context,
                                          const char *priorities);
 
-  bool (*init_session) (struct MHD_TLS_Session * session);
+  bool (*init_session) (struct MHD_TLS_Session * session,
+                        MHD_TLS_ReadCallback read_cb,
+                        MHD_TLS_WriteCallback write_cb,
+                        void *cb_data);
   void (*deinit_session) (struct MHD_TLS_Session * session);
 
   ssize_t (*session_handshake) (struct MHD_TLS_Session * session);
@@ -221,6 +244,9 @@ struct MHD_TLS_Context
 struct MHD_TLS_Session
 {
   struct MHD_TLS_Context * context;
+
+  void * cb_data;
+  MHD_TLS_FreeCallback free_cb_data_cb;
 
   union
   {
@@ -283,7 +309,7 @@ void
 MHD_TLS_set_engine_logging_cb (struct MHD_TLS_Engine *engine,
                                MHD_LogCallback cb,
                                void *data,
-                               MHD_TLS_FreeData free_data_cb);
+                               MHD_TLS_FreeCallback free_data_cb);
 
 void
 MHD_TLS_log_engine (struct MHD_TLS_Engine *engine,
@@ -306,7 +332,7 @@ MHD_TLS_own_context (struct MHD_TLS_Engine *engine,
 
 bool
 MHD_TLS_set_context_certificate_cb (struct MHD_TLS_Context *context,
-                                    MHD_TLS_GetCertificate cb);
+                                    MHD_TLS_GetCertificateCallback cb);
 
 bool
 MHD_TLS_set_context_dh_params (struct MHD_TLS_Context *context,
@@ -331,7 +357,11 @@ MHD_TLS_set_context_cipher_priorities (struct MHD_TLS_Context *context,
                                        const char *priorities);
 
 struct MHD_TLS_Session *
-MHD_TLS_create_session (struct MHD_TLS_Context * context);
+MHD_TLS_create_session (struct MHD_TLS_Context * context,
+                        MHD_TLS_ReadCallback read_cb,
+                        MHD_TLS_WriteCallback write_cb,
+                        void *cb_data,
+                        MHD_TLS_FreeCallback free_data_cb);
 
 void
 MHD_TLS_del_session (struct MHD_TLS_Session *session);

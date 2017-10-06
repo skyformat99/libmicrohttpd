@@ -1618,7 +1618,7 @@ struct MHD_Daemon
    * Function that can be used to obtain the certificate. Needed
    * for SNI support. See #MHD_OPTION_HTTPS_CERT_CALLBACK.
    */
-  MHD_TLS_GetCertificate cert_callback;
+  MHD_TLS_GetCertificateCallback cert_callback;
 
   /**
    * Pointer to our SSL/TLS key (in ASCII) in memory.

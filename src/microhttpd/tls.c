@@ -278,7 +278,7 @@ void
 MHD_TLS_set_engine_logging_cb (struct MHD_TLS_Engine *engine,
                                MHD_LogCallback cb,
                                void *data,
-                               MHD_TLS_FreeData free_data_cb)
+                               MHD_TLS_FreeCallback free_data_cb)
 {
   if (NULL == engine)
     return;
@@ -396,7 +396,7 @@ MHD_TLS_own_context (struct MHD_TLS_Engine *engine,
 
 bool
 MHD_TLS_set_context_certificate_cb (struct MHD_TLS_Context *context,
-                                    MHD_TLS_GetCertificate cb)
+                                    MHD_TLS_GetCertificateCallback cb)
 {
   if (NULL == context)
     return false;
@@ -508,12 +508,23 @@ MHD_TLS_set_context_cipher_priorities (struct MHD_TLS_Context *context,
 }
 
 struct MHD_TLS_Session *
-MHD_TLS_create_session (struct MHD_TLS_Context * context)
+MHD_TLS_create_session (struct MHD_TLS_Context * context,
+                        MHD_TLS_ReadCallback read_cb,
+                        MHD_TLS_WriteCallback write_cb,
+                        void *cb_data,
+                        MHD_TLS_FreeCallback free_data_cb)
 {
   struct MHD_TLS_Session *session;
 
   if (NULL == context)
     return NULL;
+
+  if (NULL == read_cb || NULL == write_cb)
+    {
+      MHD_TLS_LOG_CONTEXT (context,
+                           _("Missing read or write callback for TLS session\n"));
+      return NULL;
+    }
 
   session = MHD_calloc_ (1, sizeof (struct MHD_TLS_Session));
   if (NULL == session)
@@ -524,8 +535,13 @@ MHD_TLS_create_session (struct MHD_TLS_Context * context)
     }
 
   session->context = context;
+  session->cb_data = cb_data;
+  session->free_cb_data_cb = free_data_cb;
 
-  if (!context->engine->init_session (session))
+  if (!context->engine->init_session (session,
+                                      read_cb,
+                                      write_cb,
+                                      cb_data))
     {
       MHD_TLS_LOG_CONTEXT (context,
                            _("Engine %s failed to initialize TLS session\n"),
@@ -544,6 +560,8 @@ MHD_TLS_del_session (struct MHD_TLS_Session *session)
     return;
 
   session->context->engine->deinit_session (session);
+  if (NULL != session->cb_data && NULL != session->free_cb_data_cb)
+    session->free_cb_data_cb (session->cb_data);
   free (session);
 }
 

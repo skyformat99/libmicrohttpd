@@ -159,7 +159,7 @@ MHD_TLS_gnutls_deinit_context (struct MHD_TLS_Context * context)
 
 bool
 MHD_TLS_gnutls_set_context_certificate_cb (struct MHD_TLS_Context *context,
-                                           MHD_TLS_GetCertificate cb)
+                                           MHD_TLS_GetCertificateCallback cb)
 {
 #if GNUTLS_VERSION_MAJOR >= 3
   gnutls_certificate_set_retrieve_function2 (context->d.gnutls.x509_cred,
@@ -333,7 +333,10 @@ MHD_TLS_gnutls_set_context_cipher_priorities (struct MHD_TLS_Context *context,
 }
 
 bool
-MHD_TLS_gnutls_init_session (struct MHD_TLS_Session * session)
+MHD_TLS_gnutls_init_session (struct MHD_TLS_Session * session,
+                             MHD_TLS_ReadCallback read_cb,
+                             MHD_TLS_WriteCallback write_cb,
+                             void *cb_data)
 {
   int result;
 
@@ -388,6 +391,13 @@ MHD_TLS_gnutls_init_session (struct MHD_TLS_Session * session)
         gnutls_certificate_server_set_request (session->d.gnutls.session,
                                                request);
    }
+
+  gnutls_transport_set_ptr (session->d.gnutls.session,
+                            cb_data);
+  gnutls_transport_set_pull_function (session->d.gnutls.session,
+                                      read_cb);
+  gnutls_transport_set_push_function (session->d.gnutls.session,
+                                      write_cb);
 
   return true;
 

@@ -30,6 +30,172 @@
 #include "internal.h"
 #include "tls.h"
 
+typedef ssize_t
+(*BIO_ReadCallback) (void *context,
+                     void *buf,
+                     size_t size);
+typedef ssize_t
+(*BIO_WriteCallback) (void *context,
+                      const void *buf,
+                      size_t size);
+
+static int
+cb_bio_write (BIO *bio,
+              const char *buf,
+              int size);
+static int
+cb_bio_read (BIO *bio,
+             char *buf,
+             int size);
+static int
+cb_bio_puts (BIO *bio,
+             const char *s);
+static long
+cb_bio_ctrl (BIO *bio,
+             int cmd,
+             long num,
+             void *ptr);
+static int
+cb_bio_new (BIO *bio);
+static int
+cb_bio_free (BIO *bio);
+
+struct CB_BIO
+{
+  BIO_ReadCallback read_cb;
+  BIO_WriteCallback write_cb;
+  void *context;
+};
+
+static BIO_METHOD cb_bio_methods =
+{
+    (0x80000000|BIO_TYPE_SOURCE_SINK), /* avoid conflict with builtin BIO's. */
+    "MHD",
+    cb_bio_write,
+    cb_bio_read,
+    cb_bio_puts,
+    NULL,
+    cb_bio_ctrl,
+    cb_bio_new,
+    cb_bio_free,
+};
+
+static int
+cb_bio_write (BIO *bio, const char *buf, int size)
+{
+  int result;
+  struct CB_BIO *cb = (struct CB_BIO *)bio->ptr;
+
+  if (0 > size || (0 < size && NULL == buf))
+    return -1;
+
+  BIO_clear_retry_flags (bio);
+  result = cb->write_cb (cb->context,
+                         buf,
+                         size);
+  if (result >= 0)
+    return result;
+
+  if (MHD_SCKT_ERR_IS_EAGAIN_ (MHD_socket_get_error_ ()))
+    BIO_set_retry_write (bio);
+
+  return -1;
+}
+
+static int
+cb_bio_read (BIO *bio, char *buf, int size)
+{
+  int result;
+  struct CB_BIO *cb = (struct CB_BIO *)bio->ptr;
+
+  if (0 > size || (0 < size && NULL == buf))
+    return -1;
+
+  BIO_clear_retry_flags (bio);
+  result = cb->read_cb (cb->context,
+                        buf,
+                        size);
+  if (result >= 0)
+    return result;
+
+  if (MHD_SCKT_ERR_IS_EAGAIN_ (MHD_socket_get_error_ ()))
+    BIO_set_retry_read (bio);
+
+  return -1;
+}
+
+static int
+cb_bio_puts (BIO *bio, const char *str)
+{
+  if (NULL == str)
+    return -1;
+
+  return cb_bio_write (bio,
+                       str,
+                       strlen (str));
+}
+
+static long
+cb_bio_ctrl (BIO *bio, int cmd, long num, void *ptr)
+{
+  switch (cmd)
+    {
+    case BIO_CTRL_FLUSH:
+      return 1;
+    default:
+      return 0;
+    }
+}
+
+static int
+cb_bio_new (BIO *bio)
+{
+  struct CB_BIO *cb;
+
+  cb = (struct CB_BIO *) OPENSSL_malloc (sizeof (struct CB_BIO));
+  if (NULL == cb)
+    return 0;
+
+  cb->read_cb = NULL;
+  cb->write_cb = NULL;
+  cb->context = NULL;
+  bio->ptr = cb;
+
+  return 1;
+}
+
+static int
+cb_bio_free (BIO *bio)
+{
+  OPENSSL_free (bio->ptr);
+  bio->ptr = NULL;
+
+  return 1;
+}
+
+static BIO *
+BIO_new_cb (BIO_ReadCallback read_cb,
+            BIO_WriteCallback write_cb,
+            void *context)
+{
+    BIO *bio;
+    struct CB_BIO *cb;
+
+    if (NULL == read_cb || NULL == write_cb)
+      return NULL;
+
+    bio = BIO_new (&cb_bio_methods);
+    if (NULL == bio)
+      return (NULL);
+
+    cb = (struct CB_BIO *) bio->ptr;
+    cb->read_cb = read_cb;
+    cb->write_cb = write_cb;
+    cb->context = context;
+    bio->init = 1;
+
+    return bio;
+}
 #if defined(MHD_USE_POSIX_THREADS)
 
 static pthread_mutex_t *locks;
@@ -170,7 +336,7 @@ MHD_TLS_openssl_deinit_context (struct MHD_TLS_Context * context)
 
 bool
 MHD_TLS_openssl_set_context_certificate_cb (struct MHD_TLS_Context *context,
-                                            MHD_TLS_GetCertificate cb)
+                                            MHD_TLS_GetCertificateCallback cb)
 {
   SSL_CTX_set_cert_cb (context->d.openssl.context,
                        (int (*)(SSL *, void *))cb,
@@ -361,8 +527,13 @@ MHD_TLS_openssl_set_context_cipher_priorities (struct MHD_TLS_Context *context,
 }
 
 bool
-MHD_TLS_openssl_init_session (struct MHD_TLS_Session * session)
+MHD_TLS_openssl_init_session (struct MHD_TLS_Session * session,
+                              MHD_TLS_ReadCallback read_cb,
+                              MHD_TLS_WriteCallback write_cb,
+                              void *cb_data)
 {
+  BIO *bio;
+
   session->d.openssl.session = SSL_new (session->context->d.openssl.context);
   if (NULL == session ->d.openssl.session)
     {
@@ -370,6 +541,21 @@ MHD_TLS_openssl_init_session (struct MHD_TLS_Session * session)
                           _("Cannot allocate SSL session\n"));
       return false;
     }
+
+  bio = BIO_new_cb (read_cb,
+                    write_cb,
+                    cb_data);
+  if (NULL == bio)
+    {
+      MHD_TLS_LOG_SESSION(session,
+                          _("Cannot create BIO\n"));
+      SSL_free (session->d.openssl.session);
+      return false;
+    }
+
+  SSL_set_bio (session->d.openssl.session,
+               bio,
+               bio);
 
   return true;
 }
@@ -439,7 +625,7 @@ MHD_TLS_openssl_session_wants_write (struct MHD_TLS_Session *session)
 size_t
 MHD_TLS_openssl_session_read_pending (struct MHD_TLS_Session *session)
 {
-  return (size_t)SSL_pending (session->d.openssl.session);
+  return (size_t) SSL_pending (session->d.openssl.session);
 }
 
 ssize_t
