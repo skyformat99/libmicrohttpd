@@ -1314,6 +1314,10 @@ enum MHD_OPTION
   /**
    * Memory pointer to a `const char *` specifying the
    * cipher algorithm (default: "NORMAL").
+   *
+   * Setting this option will fail if the TLS engine is not GnuTLS.
+   *
+   * @deprecated use MHD_OPTION_TLS_PRIORITIES instead
    */
   MHD_OPTION_HTTPS_PRIORITIES = 11,
 
@@ -1439,6 +1443,7 @@ enum MHD_OPTION
    * based on the SNI information provided.  The callback is expected
    * to access the SNI data using `gnutls_server_name_get()`.
    * Using this option requires GnuTLS 3.0 or higher.
+   * TODO: update for TLS engine architecture.
    */
   MHD_OPTION_HTTPS_CERT_CALLBACK = 22,
 
@@ -1530,7 +1535,17 @@ enum MHD_OPTION
    * the currently selected engine type. If this option has not been met yet,
    * we use the default GnuTLS engine if available, or fail otherwise.
    */
-    MHD_OPTION_TLS_ENGINE_TYPE = 30
+    MHD_OPTION_TLS_ENGINE_TYPE = 30,
+
+  /**
+   * Memory pointer to a `const char *` specifying the cipher algorithm.
+   *
+   * For GnuTLS, it must use the format expected by @c gnutls_priority_init().
+   * It defaults to "NORMAL".
+   *
+   * For OpenSSL, it must use the format expected by @c SSL_CTX_set_cipher_list().
+   */
+    MHD_OPTION_TLS_PRIORITIES = 31,
 };
 
 /**
@@ -1698,11 +1713,13 @@ union MHD_ConnectionInfo
 
   /**
    * Cipher algorithm used, of type "enum gnutls_cipher_algorithm".
+   * TODO: update for TLS engine architecture.
    */
   int /* enum gnutls_cipher_algorithm */ cipher_algorithm;
 
   /**
    * Protocol used, of type "enum gnutls_protocol".
+   * TODO: update for TLS engine architecture.
    */
   int /* enum gnutls_protocol */ protocol;
 
@@ -1730,11 +1747,13 @@ union MHD_ConnectionInfo
 
   /**
    * GNUtls session handle, of type "gnutls_session_t".
+   * TODO: update for TLS engine architecture.
    */
   void * /* gnutls_session_t */ tls_session;
 
   /**
    * GNUtls client certificate handle, of type "gnutls_x509_crt_t".
+   * TODO: update for TLS engine architecture.
    */
   void * /* gnutls_x509_crt_t */ client_cert;
 
@@ -1768,6 +1787,7 @@ enum MHD_ConnectionInfoType
    * What cipher algorithm is being used.
    * Takes no extra arguments.
    * @ingroup request
+   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_CIPHER_ALGO,
 
@@ -1775,6 +1795,7 @@ enum MHD_ConnectionInfoType
    *
    * Takes no extra arguments.
    * @ingroup request
+   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_PROTOCOL,
 
@@ -1784,12 +1805,14 @@ enum MHD_ConnectionInfoType
    * a `union MHD_ConnectionInfo *` and that union contains a `struct
    * sockaddr *`).
    * @ingroup request
+   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_CLIENT_ADDRESS,
 
   /**
    * Get the gnuTLS session handle.
    * @ingroup request
+   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_GNUTLS_SESSION,
 
@@ -1798,6 +1821,7 @@ enum MHD_ConnectionInfoType
    * implemented, deprecated).  Use #MHD_CONNECTION_INFO_GNUTLS_SESSION
    * when using the GnuTLS engine to get the `gnutls_session_t` and then call
    * gnutls_certificate_get_peers().
+   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_GNUTLS_CLIENT_CERT,
 
@@ -3518,6 +3542,10 @@ enum MHD_TLS_FEATURE
 {
   /**
    * Get whether the corresponding TLS engine is available.
+   *
+   * If available, flag #MHD_USE_TLS and options #MHD_OPTION_HTTPS_MEM_KEY,
+   * #MHD_OPTION_HTTPS_MEM_CERT, #MHD_OPTION_HTTPS_MEM_TRUST,
+   * #MHD_OPTION_HTTPS_MEM_DHPARAMS, #MHD_OPTION_TLS_PRIORITIES can be used.
    */
   MHD_TLS_FEATURE_ENGINE_AVAILABLE = 1,
 
