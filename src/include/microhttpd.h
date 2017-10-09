@@ -1523,17 +1523,17 @@ enum MHD_OPTION
    * Set the TLS engine type to use for HTTPS connections. See
    * #MHD_TLS_EngineType for allowed values. For compatibility with the
    * previous versions of MHD, the default engine is GnuTLS. If it's not
-   * available, no default is set. If you intend to use another TLS engine
-   * such as OpenSSL, you @b MUST select the engine explicitly as it will
-   * change the behavior of certain options. For example, the
+   * available, we will switch to OpenSSL. A few options will behave
+   * differently based on the selected TLS engine. For example, the
    * #MHD_OPTION_HTTPS_CERT_CALLBACK will expect a callback with a different
-   * signature, and #MHD_CONNECTION_INFO_TLS_SESSION will return an
-   * OpenSSL session instead of a GnuTLS one.
+   * signature, and #MHD_CONNECTION_INFO_TLS_SESSION will return an OpenSSL
+   * session instead of a GnuTLS one. Besides, all GnuTLS-specific option will
+   * return an error if called with a different TLS engine.
    *
    * You must set this option before any other HTTPS-related option. Indeed,
    * the first time an HTTPS option is met, we create the TLS engine based on
    * the currently selected engine type. If this option has not been met yet,
-   * we use the default GnuTLS engine if available, or fail otherwise.
+   * we use the default TLS engine if available, or fail otherwise.
    */
     MHD_OPTION_TLS_ENGINE_TYPE = 30,
 

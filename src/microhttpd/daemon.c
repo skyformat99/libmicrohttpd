@@ -5522,6 +5522,8 @@ MHD_start_daemon_va (unsigned int flags,
 #ifdef HTTPS_SUPPORT
   if (NULL != MHD_TLS_lookup_engine (MHD_TLS_ENGINE_TYPE_GNUTLS))
     daemon->tls_engine_type = MHD_TLS_ENGINE_TYPE_GNUTLS;
+  else if (NULL != MHD_TLS_lookup_engine (MHD_TLS_ENGINE_TYPE_OPENSSL))
+    daemon->tls_engine_type = MHD_TLS_ENGINE_TYPE_OPENSSL;
   else
     daemon->tls_engine_type = MHD_TLS_ENGINE_TYPE_NONE;
 #endif /* HTTPS_SUPPORT */
