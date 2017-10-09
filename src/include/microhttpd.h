@@ -1777,7 +1777,6 @@ union MHD_ConnectionInfo
 
   /**
    * Protocol used, of type "enum gnutls_protocol".
-   * TODO: update for TLS engine architecture.
    */
   int /* enum gnutls_protocol */ protocol;
 
@@ -1814,7 +1813,9 @@ union MHD_ConnectionInfo
 
   /**
    * GNUtls client certificate handle, of type "gnutls_x509_crt_t".
-   * TODO: update for TLS engine architecture.
+   *
+   * @note never implemented
+   * @sa #MHD_CONNECTION_INFO_GNUTLS_CLIENT_CERT
    */
   void * /* gnutls_x509_crt_t */ client_cert;
 
