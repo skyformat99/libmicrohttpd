@@ -31,35 +31,9 @@
 #include "tls.h"
 #include "mhd_compat.h"
 
-#ifdef HAVE_GNUTLS
-static bool gnutls_inited = false;
-#endif
-
-#ifdef HAVE_OPENSSL
-static bool openssl_inited = false;
-#endif
-
-static const char *tls_engine_type_strings[MHD_TLS_ENGINE_TYPE_MAX] = {
-  "GnuTLS",
-  "OpenSSL"
-};
+static const struct MHD_TLS_Engine *engines[MHD_TLS_ENGINE_TYPE_MAX + 1];
 
 #ifdef HAVE_MESSAGES
-
-void
-MHD_TLS_LOG_ENGINE (struct MHD_TLS_Engine *engine,
-                    const char *format,
-                    ...)
-{
-  va_list args;
-
-  va_start (args,
-            format);
-  MHD_TLS_log_engine_va (engine,
-                         format,
-                         args);
-  va_end (args);
-}
 
 void
 MHD_TLS_LOG_CONTEXT (struct MHD_TLS_Context *context,
@@ -70,9 +44,9 @@ MHD_TLS_LOG_CONTEXT (struct MHD_TLS_Context *context,
 
   va_start (args,
             format);
-  MHD_TLS_log_engine_va (context->engine,
-                         format,
-                         args);
+  MHD_TLS_log_context_va (context,
+                          format,
+                          args);
   va_end (args);
 }
 
@@ -85,9 +59,9 @@ MHD_TLS_LOG_SESSION (struct MHD_TLS_Session *session,
 
   va_start (args,
             format);
-  MHD_TLS_log_engine_va (session->context->engine,
-                         format,
-                         args);
+  MHD_TLS_log_context_va (session->context,
+                          format,
+                          args);
   va_end (args);
 }
 
@@ -97,18 +71,18 @@ void
 MHD_TLS_global_init (void)
 {
 #ifdef HAVE_GNUTLS
-  if (!gnutls_inited)
+  if (NULL == engines[MHD_TLS_ENGINE_TYPE_GNUTLS])
     {
       MHD_TLS_gnutls_init ();
-      gnutls_inited = true;
+      engines[MHD_TLS_ENGINE_TYPE_GNUTLS] = &tls_engine_gnutls;
     }
 #endif /* HAVE_GNUTLS */
 
 #ifdef HAVE_OPENSSL
-  if (!openssl_inited)
+  if (NULL == engines[MHD_TLS_ENGINE_TYPE_OPENSSL])
     {
       MHD_TLS_openssl_init ();
-      openssl_inited = true;
+      engines[MHD_TLS_ENGINE_TYPE_OPENSSL] = &tls_engine_openssl;
     }
 #endif /* HAVE_OPENSSL */
 }
@@ -117,261 +91,103 @@ void
 MHD_TLS_global_deinit (void)
 {
 #ifdef HAVE_GNUTLS
-  if (gnutls_inited)
+  if (NULL != engines[MHD_TLS_ENGINE_TYPE_GNUTLS])
     {
       MHD_TLS_gnutls_deinit ();
-      gnutls_inited = false;
+      engines[MHD_TLS_ENGINE_TYPE_GNUTLS] = NULL;
     }
 #endif /* HAVE_GNUTLS */
 
 #ifdef HAVE_OPENSSL
-  if (openssl_inited)
+  if (NULL != engines[MHD_TLS_ENGINE_TYPE_OPENSSL])
     {
       MHD_TLS_openssl_deinit ();
-      openssl_inited = false;
+      engines[MHD_TLS_ENGINE_TYPE_OPENSSL] = NULL;
     }
 #endif /* HAVE_OPENSSL */
 }
 
 bool
-MHD_TLS_has_engine (enum MHD_TLS_EngineType type)
+MHD_TLS_engine_has_feature (const struct MHD_TLS_Engine *engine,
+                            enum MHD_TLS_FEATURE feature)
 {
-  switch (type)
-    {
-#ifdef HAVE_GNUTLS
-    case MHD_TLS_ENGINE_TYPE_GNUTLS:
-      return gnutls_inited;
-#endif /* HAVE_GNUTLS */
-
-#ifdef HAVE_OPENSSL
-    case MHD_TLS_ENGINE_TYPE_OPENSSL:
-      return openssl_inited;
-#endif /* HAVE_OPENSSL */
-    }
-
-  return false;
-}
-
-struct MHD_TLS_Engine *
-MHD_TLS_create_engine (void)
-{
-  struct MHD_TLS_Engine *engine;
-
-  engine = MHD_calloc_ (1, sizeof (struct MHD_TLS_Engine));
-  if (NULL == engine)
-    return NULL;
-
-  engine->name = "";
-  engine->type = MHD_TLS_ENGINE_TYPE_NONE;
-
-  return engine;
-}
-
-void
-MHD_TLS_del_engine (struct MHD_TLS_Engine *engine)
-{
-  if (NULL == engine)
-    return;
-
-  MHD_TLS_set_engine_logging_cb (engine,
-                                 NULL,
-                                 NULL,
-                                 NULL);
-  free (engine);
-}
-
-bool
-MHD_TLS_setup_engine (struct MHD_TLS_Engine * engine,
-                      enum MHD_TLS_EngineType type)
-{
-  const char *name;
-
   if (NULL == engine)
     return false;
+  return engine->has_feature (feature);
+}
 
+const struct MHD_TLS_Engine *
+MHD_TLS_lookup_engine (enum MHD_TLS_EngineType type)
+{
   if (type > MHD_TLS_ENGINE_TYPE_MAX)
-    {
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("Unknown TLS engine type %d\n"),
-                          type);
-      return false;
-    }
-
-  if (!MHD_TLS_has_engine (type))
-    {
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("TLS engine %s not available\n"),
-                          tls_engine_type_strings[type]);
-      return false;
-    }
-
-  if (MHD_TLS_ENGINE_TYPE_NONE != engine->type)
-    {
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("TLS engine already set up\n"));
-      return false;
-    }
-
-  switch (type)
-    {
-    case MHD_TLS_ENGINE_TYPE_GNUTLS:
-      engine->init_context = MHD_TLS_gnutls_init_context;
-      engine->deinit_context = MHD_TLS_gnutls_deinit_context;
-      engine->set_context_certificate_cb = MHD_TLS_gnutls_set_context_certificate_cb;
-      engine->set_context_dh_params = MHD_TLS_gnutls_set_context_dh_params;
-      engine->set_context_certificate = MHD_TLS_gnutls_set_context_certificate;
-      engine->set_context_trust_certificate = MHD_TLS_gnutls_set_context_trust_certificate;
-      engine->set_context_client_certificate_mode = MHD_TLS_gnutls_set_context_client_certificate_mode;
-      engine->set_context_cipher_priorities = MHD_TLS_gnutls_set_context_cipher_priorities;
-      engine->init_session = MHD_TLS_gnutls_init_session;
-      engine->deinit_session = MHD_TLS_gnutls_deinit_session;
-      engine->session_handshake = MHD_TLS_gnutls_session_handshake;
-      engine->session_close = MHD_TLS_gnutls_session_close;
-      engine->session_wants_read = MHD_TLS_gnutls_session_wants_read;
-      engine->session_wants_write = MHD_TLS_gnutls_session_wants_write;
-      engine->session_read_pending = MHD_TLS_gnutls_session_read_pending;
-      engine->session_read = MHD_TLS_gnutls_session_read;
-      engine->session_write = MHD_TLS_gnutls_session_write;
-      break;
-
-    case MHD_TLS_ENGINE_TYPE_OPENSSL:
-      engine->init_context = MHD_TLS_openssl_init_context;
-      engine->deinit_context = MHD_TLS_openssl_deinit_context;
-      engine->set_context_certificate_cb = MHD_TLS_openssl_set_context_certificate_cb;
-      engine->set_context_dh_params = MHD_TLS_openssl_set_context_dh_params;
-      engine->set_context_certificate = MHD_TLS_openssl_set_context_certificate;
-      engine->set_context_trust_certificate = MHD_TLS_openssl_set_context_trust_certificate;
-      engine->set_context_client_certificate_mode = MHD_TLS_openssl_set_context_client_certificate_mode;
-      engine->set_context_cipher_priorities = MHD_TLS_openssl_set_context_cipher_priorities;
-      engine->init_session = MHD_TLS_openssl_init_session;
-      engine->deinit_session = MHD_TLS_openssl_deinit_session;
-      engine->session_handshake = MHD_TLS_openssl_session_handshake;
-      engine->session_close = MHD_TLS_openssl_session_close;
-      engine->session_wants_read = MHD_TLS_openssl_session_wants_read;
-      engine->session_wants_write = MHD_TLS_openssl_session_wants_write;
-      engine->session_read_pending = MHD_TLS_openssl_session_read_pending;
-      engine->session_read = MHD_TLS_openssl_session_read;
-      engine->session_write = MHD_TLS_openssl_session_write;
-      break;
-
-    default:
-      assert (false);
-      return false;
-    }
-
-  engine->name = tls_engine_type_strings[type];
-  engine->type = type;
-
-  return true;
-}
-
-enum MHD_TLS_EngineType
-MHD_TLS_get_engine_type (struct MHD_TLS_Engine *engine)
-{
-  if (engine == NULL)
-    return MHD_TLS_ENGINE_TYPE_NONE;
-
-  return engine->type;
-}
-
-void
-MHD_TLS_set_engine_logging_cb (struct MHD_TLS_Engine *engine,
-                               MHD_LogCallback cb,
-                               void *data,
-                               MHD_TLS_FreeCallback free_data_cb)
-{
-  if (NULL == engine)
-    return;
-
-  if (NULL != engine->log_data &&
-      NULL != engine->free_log_data_cb)
-    {
-      engine->free_log_data_cb (engine->log_data);
-      engine->log_data = NULL;
-      engine->free_log_data_cb = NULL;
-    }
-
-  if (NULL != cb)
-    {
-      engine->log_cb = cb;
-      engine->log_data = data;
-      engine->free_log_data_cb = free_data_cb;
-    }
-  else
-    {
-      engine->log_cb = NULL;
-      engine->log_data = NULL;
-      engine->free_log_data_cb = NULL;
-    }
-}
-
-void
-MHD_TLS_log_engine (struct MHD_TLS_Engine *engine,
-                    const char *format,
-                    ...)
-{
-  if (NULL == engine)
-    return;
-
-  if (engine->log_cb != NULL)
-    {
-      va_list args;
-
-      va_start (args, format);
-      engine->log_cb (engine->log_data, format, args);
-      va_end (args);
-    }
-}
-
-void
-MHD_TLS_log_engine_va (struct MHD_TLS_Engine *engine,
-                       const char *format,
-                       va_list args)
-{
-  if (NULL == engine)
-    return;
-
-  if (engine->log_cb != NULL)
-    {
-      engine->log_cb (engine->log_data, format, args);
-    }
+    return NULL;
+  return engines[type];
 }
 
 struct MHD_TLS_Context *
-MHD_TLS_create_context (struct MHD_TLS_Engine *engine)
+MHD_TLS_create_context (const struct MHD_TLS_Engine *engine,
+                        MHD_LogCallback log_cb,
+                        void *log_data,
+                        MHD_TLS_FreeCallback free_log_data_cb)
 {
   struct MHD_TLS_Context *context;
 
   if (NULL == engine)
     return NULL;
 
-  if (MHD_TLS_ENGINE_TYPE_NONE == engine->type)
-    {
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("TLS engine not set up\n"));
-      return NULL;
-    }
+  if (NULL == log_cb && (NULL != log_data || NULL != free_log_data_cb))
+    return NULL;
 
   context = MHD_calloc_ (1, sizeof (struct MHD_TLS_Context));
   if (NULL == context)
-    {
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("Cannot allocate TLS context\n"));
-      return NULL;
-    }
+    return NULL;
 
   context->engine = engine;
+  context->log_cb = log_cb;
+  context->log_data = log_data;
+  context->free_log_data_cb = free_log_data_cb;
+
 
   if (!engine->init_context (context))
     {
-      MHD_TLS_LOG_ENGINE (engine,
-                          _("Engine %s failed to initialize TLS context\n"),
-                          engine->name);
+      MHD_TLS_LOG_CONTEXT (context,
+                           _("Engine %s failed to initialize TLS context\n"),
+                           engine->name);
       free (context);
       return NULL;
     }
 
   return context;
+}
+
+void
+MHD_TLS_log_context (struct MHD_TLS_Context *context,
+                     const char *format,
+                     ...)
+{
+  if (NULL == context)
+    return;
+
+  if (context->log_cb != NULL)
+    {
+      va_list args;
+
+      va_start (args, format);
+      context->log_cb (context->log_data, format, args);
+      va_end (args);
+    }
+}
+
+void
+MHD_TLS_log_context_va (struct MHD_TLS_Context *context,
+                        const char *format,
+                        va_list args)
+{
+  if (NULL == context)
+    return;
+
+  if (context->log_cb != NULL)
+      context->log_cb (context->log_data, format, args);
 }
 
 void
@@ -381,17 +197,9 @@ MHD_TLS_del_context (struct MHD_TLS_Context *context)
     return;
 
   context->engine->deinit_context (context);
+  if (NULL != context->log_data && NULL != context->free_log_data_cb)
+    context->free_log_data_cb (context->log_data);
   free (context);
-}
-
-bool
-MHD_TLS_own_context (struct MHD_TLS_Engine *engine,
-                     struct MHD_TLS_Context *context)
-{
-  if (NULL == engine || NULL == context)
-    return false;
-
-  return (context->engine == engine);
 }
 
 bool
@@ -563,16 +371,6 @@ MHD_TLS_del_session (struct MHD_TLS_Session *session)
   if (NULL != session->cb_data && NULL != session->free_cb_data_cb)
     session->free_cb_data_cb (session->cb_data);
   free (session);
-}
-
-bool
-MHD_TLS_own_session (struct MHD_TLS_Context *context,
-                     struct MHD_TLS_Session *session)
-{
-  if (NULL == context || NULL == session)
-    return false;
-
-  return (session->context == context);
 }
 
 ssize_t

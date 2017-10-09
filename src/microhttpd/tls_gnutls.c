@@ -113,7 +113,29 @@ MHD_TLS_gnutls_deinit (void)
   gnutls_global_deinit ();
 }
 
-bool
+static bool
+MHD_TLS_gnutls_has_feature (enum MHD_TLS_FEATURE feature)
+{
+  switch (feature)
+    {
+    case MHD_TLS_FEATURE_CERT_CALLBACK:
+#if GNUTLS_VERSION_MAJOR >= 3
+      return true;
+#else
+      return false;
+#endif
+    case MHD_TLS_FEATURE_KEY_PASSWORD:
+#if GNUTLS_VERSION_NUMBER >= 0x030111
+      return true;
+#else
+      return false;
+#endif
+    default:
+      return MHD_NO;
+    }
+}
+
+static bool
 MHD_TLS_gnutls_init_context (struct MHD_TLS_Context *context)
 {
   int result;
@@ -150,14 +172,14 @@ cleanup:
   return false;
 }
 
-void
+static void
 MHD_TLS_gnutls_deinit_context (struct MHD_TLS_Context * context)
 {
   gnutls_certificate_free_credentials (context->d.gnutls.x509_cred);
   gnutls_priority_deinit (context->d.gnutls.priority_cache);
 }
 
-bool
+static bool
 MHD_TLS_gnutls_set_context_certificate_cb (struct MHD_TLS_Context *context,
                                            MHD_TLS_GetCertificateCallback cb)
 {
@@ -172,7 +194,7 @@ MHD_TLS_gnutls_set_context_certificate_cb (struct MHD_TLS_Context *context,
 #endif
 }
 
-bool
+static bool
 MHD_TLS_gnutls_set_context_dh_params (struct MHD_TLS_Context *context,
                                       const char *params)
 {
@@ -212,7 +234,7 @@ cleanup:
   return (result == GNUTLS_E_SUCCESS);
 }
 
-bool
+static bool
 MHD_TLS_gnutls_set_context_certificate (struct MHD_TLS_Context *context,
                                         const char *certificate,
                                         const char *private_key,
@@ -266,7 +288,7 @@ MHD_TLS_gnutls_set_context_certificate (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_gnutls_set_context_trust_certificate (struct MHD_TLS_Context *context,
                                               const char *certificate)
 {
@@ -288,7 +310,7 @@ MHD_TLS_gnutls_set_context_trust_certificate (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_gnutls_set_context_client_certificate_mode (struct MHD_TLS_Context *context,
                                                     enum MHD_TLS_ClientCertificateMode mode)
 {
@@ -306,7 +328,7 @@ MHD_TLS_gnutls_set_context_client_certificate_mode (struct MHD_TLS_Context *cont
     }
 }
 
-bool
+static bool
 MHD_TLS_gnutls_set_context_cipher_priorities (struct MHD_TLS_Context *context,
                                               const char *priorities)
 {
@@ -332,7 +354,7 @@ MHD_TLS_gnutls_set_context_cipher_priorities (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_gnutls_init_session (struct MHD_TLS_Session * session,
                              MHD_TLS_ReadCallback read_cb,
                              MHD_TLS_WriteCallback write_cb,
@@ -406,13 +428,13 @@ cleanup:
   return false;
 }
 
-void
+static void
 MHD_TLS_gnutls_deinit_session (struct MHD_TLS_Session * session)
 {
   gnutls_deinit (session->d.gnutls.session);
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_gnutls_session_handshake (struct MHD_TLS_Session * session)
 {
   int result;
@@ -430,7 +452,7 @@ MHD_TLS_gnutls_session_handshake (struct MHD_TLS_Session * session)
   return MHD_TLS_IO_UNKNOWN_ERROR;
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_gnutls_session_close (struct MHD_TLS_Session * session)
 {
   int result;
@@ -448,25 +470,25 @@ MHD_TLS_gnutls_session_close (struct MHD_TLS_Session * session)
   return MHD_TLS_IO_UNKNOWN_ERROR;
 }
 
-bool
+static bool
 MHD_TLS_gnutls_session_wants_read (struct MHD_TLS_Session *session)
 {
 	return (0 == gnutls_record_get_direction (session->d.gnutls.session));
 }
 
-bool
+static bool
 MHD_TLS_gnutls_session_wants_write (struct MHD_TLS_Session *session)
 {
 	return (0 != gnutls_record_get_direction (session->d.gnutls.session));
 }
 
-size_t
+static size_t
 MHD_TLS_gnutls_session_read_pending (struct MHD_TLS_Session *session)
 {
   return gnutls_record_check_pending (session->d.gnutls.session);
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_gnutls_session_read (struct MHD_TLS_Session * session,
                               void *buf,
                               size_t size)
@@ -488,7 +510,7 @@ MHD_TLS_gnutls_session_read (struct MHD_TLS_Session * session,
   return MHD_TLS_IO_UNKNOWN_ERROR;
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_gnutls_session_write (struct MHD_TLS_Session * session,
                                const void *buf,
                                size_t size)
@@ -509,3 +531,27 @@ MHD_TLS_gnutls_session_write (struct MHD_TLS_Session * session,
 
   return MHD_TLS_IO_UNKNOWN_ERROR;
 }
+
+const struct MHD_TLS_Engine tls_engine_gnutls =
+{
+  "GnuTLS",
+  MHD_TLS_ENGINE_TYPE_GNUTLS,
+  MHD_TLS_gnutls_has_feature,
+  MHD_TLS_gnutls_init_context,
+  MHD_TLS_gnutls_deinit_context,
+  MHD_TLS_gnutls_set_context_certificate_cb,
+  MHD_TLS_gnutls_set_context_dh_params,
+  MHD_TLS_gnutls_set_context_certificate,
+  MHD_TLS_gnutls_set_context_trust_certificate,
+  MHD_TLS_gnutls_set_context_client_certificate_mode,
+  MHD_TLS_gnutls_set_context_cipher_priorities,
+  MHD_TLS_gnutls_init_session,
+  MHD_TLS_gnutls_deinit_session,
+  MHD_TLS_gnutls_session_handshake,
+  MHD_TLS_gnutls_session_close,
+  MHD_TLS_gnutls_session_wants_read,
+  MHD_TLS_gnutls_session_wants_write,
+  MHD_TLS_gnutls_session_read_pending,
+  MHD_TLS_gnutls_session_read,
+  MHD_TLS_gnutls_session_write
+};

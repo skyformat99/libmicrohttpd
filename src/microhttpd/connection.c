@@ -3468,7 +3468,7 @@ MHD_get_connection_info (struct MHD_Connection *connection,
 #ifdef HAVE_GNUTLS
       if (NULL == connection->tls_session)
         return NULL;
-      if (MHD_TLS_get_engine_type (connection->tls_session->context->engine) != MHD_TLS_ENGINE_TYPE_GNUTLS)
+      if (connection->tls_session->context->engine->type != MHD_TLS_ENGINE_TYPE_GNUTLS)
         return NULL;
       connection->cipher = gnutls_cipher_get (connection->tls_session->d.gnutls.session);
       return (const union MHD_ConnectionInfo *) &connection->cipher;
@@ -3479,7 +3479,7 @@ MHD_get_connection_info (struct MHD_Connection *connection,
 #ifdef HAVE_GNUTLS
       if (NULL == connection->tls_session)
         return NULL;
-      if (MHD_TLS_get_engine_type (connection->tls_session->context->engine) != MHD_TLS_ENGINE_TYPE_GNUTLS)
+      if (connection->tls_session->context->engine->type != MHD_TLS_ENGINE_TYPE_GNUTLS)
         return NULL;
       connection->protocol = gnutls_protocol_get_version (connection->tls_session->d.gnutls.session);
       return (const union MHD_ConnectionInfo *) &connection->protocol;
@@ -3490,7 +3490,7 @@ MHD_get_connection_info (struct MHD_Connection *connection,
 #ifdef HAVE_GNUTLS
       if (NULL == connection->tls_session)
         return NULL;
-      if (MHD_TLS_get_engine_type (connection->tls_session->context->engine) != MHD_TLS_ENGINE_TYPE_GNUTLS)
+      if (connection->tls_session->context->engine->type != MHD_TLS_ENGINE_TYPE_GNUTLS)
         return NULL;
       return (const union MHD_ConnectionInfo *) &connection->tls_session->d.gnutls.session;
 #else

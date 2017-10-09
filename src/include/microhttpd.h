@@ -3349,6 +3349,11 @@ enum MHD_FEATURE
    * #MHD_OPTION_HTTPS_MEM_CERT, #MHD_OPTION_HTTPS_MEM_TRUST,
    * #MHD_OPTION_HTTPS_MEM_DHPARAMS, #MHD_OPTION_HTTPS_CRED_TYPE,
    * #MHD_OPTION_HTTPS_PRIORITIES can be used.
+   *
+   * This is equivalent to the following call:
+   * @code
+   * MHD_TLS_is_feature_supported (MHD_TLS_ENGINE_TYPE_GNUTLS, MHD_TLS_FEATURE_ENGINE_AVAILABLE)
+   * @endcode
    */
   MHD_FEATURE_TLS = 2,
   MHD_FEATURE_SSL = 2,
@@ -3356,6 +3361,11 @@ enum MHD_FEATURE
   /**
    * Get whether option #MHD_OPTION_HTTPS_CERT_CALLBACK is
    * supported.
+   *
+   * This is equivalent to the following call:
+   * @code
+   * MHD_TLS_is_feature_supported (MHD_TLS_ENGINE_TYPE_GNUTLS, MHS_TLS_FEATURE_CERT_CALLBACK)
+   * @endcode
    */
   MHD_FEATURE_HTTPS_CERT_CALLBACK = 3,
 
@@ -3430,9 +3440,14 @@ enum MHD_FEATURE
   MHD_FEATURE_POSTPROCESSOR = 13,
 
   /**
-  * Get whether password encrypted private key for HTTPS daemon is
-  * supported. If supported then option
-  * ::MHD_OPTION_HTTPS_KEY_PASSWORD can be used.
+   * Get whether password encrypted private key for HTTPS daemon is
+   * supported. If supported then option
+   * ::MHD_OPTION_HTTPS_KEY_PASSWORD can be used.
+   *
+   * This is equivalent to the following call:
+   * @code
+   * MHD_TLS_is_feature_supported(MHD_TLS_ENGINE_TYPE_GNUTLS, MHS_TLS_FEATURE_KEY_PASSWORD)
+   * @endcode
   */
   MHD_FEATURE_HTTPS_KEY_PASSWORD = 14,
 
@@ -3488,6 +3503,45 @@ enum MHD_FEATURE
 _MHD_EXTERN int
 MHD_is_feature_supported (enum MHD_FEATURE feature);
 
+
+/**
+ * Types of information about MHD TLS_features,
+ * used by #MHD_TLS_is_feature_supported().
+ */
+enum MHD_TLS_FEATURE
+{
+  /**
+   * Get whether the corresponding TLS engine is available.
+   */
+  MHD_TLS_FEATURE_ENGINE_AVAILABLE = 1,
+
+  /**
+   * Get whether the TLS engine supports option #MHD_OPTION_TLS_CERT_CALLBACK.
+   */
+  MHD_TLS_FEATURE_CERT_CALLBACK = 2,
+
+  /**
+   * Get whether the TLS engine supports option #MHD_OPTION_HTTPS_KEY_PASSWORD.
+   */
+  MHD_TLS_FEATURE_KEY_PASSWORD = 3
+};
+
+
+/**
+ * Get information about supported MHD TLS engine features.
+ * Indicate that MHD was compiled with or without support for
+ * particular feature. Some features require additional support
+ * by kernel. Kernel support is not checked by this function.
+ *
+ * @param engine_type TLS engine type
+ * @param feature type of requested information
+ * @return #MHD_YES if feature is supported by MHD, #MHD_NO if
+ * feature is not supported or feature is unknown.
+ * @ingroup specialized
+ */
+_MHD_EXTERN int
+MHD_TLS_is_feature_supported (enum MHD_TLS_EngineType engine_type,
+                              enum MHD_TLS_FEATURE feature);
 
 #if 0                           /* keep Emacsens' auto-indent happy */
 {

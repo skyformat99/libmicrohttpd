@@ -1605,11 +1605,6 @@ struct MHD_Daemon
   enum MHD_TLS_EngineType tls_engine_type;
 
   /**
-   * TLS engine.
-   */
-  struct MHD_TLS_Engine *tls_engine;
-
-  /**
    * TLS context.
    */
   struct MHD_TLS_Context *tls_context;

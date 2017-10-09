@@ -314,7 +314,21 @@ MHD_TLS_openssl_deinit (void)
   EVP_cleanup ();
 }
 
-bool
+static bool
+MHD_TLS_openssl_has_feature (enum MHD_TLS_FEATURE feature)
+{
+  switch (feature)
+    {
+    case MHD_TLS_FEATURE_CERT_CALLBACK:
+    case MHD_TLS_FEATURE_KEY_PASSWORD:
+      return true;
+    default:
+      break;
+    }
+  return MHD_NO;
+}
+
+static bool
 MHD_TLS_openssl_init_context (struct MHD_TLS_Context *context)
 {
   context->d.openssl.context = SSL_CTX_new (SSLv23_server_method ());
@@ -328,13 +342,13 @@ MHD_TLS_openssl_init_context (struct MHD_TLS_Context *context)
   return true;
 }
 
-void
+static void
 MHD_TLS_openssl_deinit_context (struct MHD_TLS_Context * context)
 {
   SSL_CTX_free (context->d.openssl.context);
 }
 
-bool
+static bool
 MHD_TLS_openssl_set_context_certificate_cb (struct MHD_TLS_Context *context,
                                             MHD_TLS_GetCertificateCallback cb)
 {
@@ -344,7 +358,7 @@ MHD_TLS_openssl_set_context_certificate_cb (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_openssl_set_context_dh_params (struct MHD_TLS_Context *context,
                                        const char *params)
 {
@@ -379,7 +393,7 @@ MHD_TLS_openssl_set_context_dh_params (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_openssl_set_context_certificate (struct MHD_TLS_Context *context,
                                          const char *certificate,
                                          const char *private_key,
@@ -443,7 +457,7 @@ MHD_TLS_openssl_set_context_certificate (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_openssl_set_context_trust_certificate (struct MHD_TLS_Context *context,
                                                const char *certificate)
 {
@@ -479,7 +493,7 @@ MHD_TLS_openssl_set_context_trust_certificate (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_openssl_set_context_client_certificate_mode (struct MHD_TLS_Context *context,
                                                      enum MHD_TLS_ClientCertificateMode mode)
 {
@@ -510,7 +524,7 @@ MHD_TLS_openssl_set_context_client_certificate_mode (struct MHD_TLS_Context *con
   return true;
 }
 
-bool
+static bool
 MHD_TLS_openssl_set_context_cipher_priorities (struct MHD_TLS_Context *context,
                                                const char *priorities)
 {
@@ -526,7 +540,7 @@ MHD_TLS_openssl_set_context_cipher_priorities (struct MHD_TLS_Context *context,
   return true;
 }
 
-bool
+static bool
 MHD_TLS_openssl_init_session (struct MHD_TLS_Session * session,
                               MHD_TLS_ReadCallback read_cb,
                               MHD_TLS_WriteCallback write_cb,
@@ -560,13 +574,13 @@ MHD_TLS_openssl_init_session (struct MHD_TLS_Session * session,
   return true;
 }
 
-void
+static void
 MHD_TLS_openssl_deinit_session (struct MHD_TLS_Session * session)
 {
   SSL_free (session->d.openssl.session);
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_openssl_session_handshake (struct MHD_TLS_Session * session)
 {
   int result;
@@ -588,7 +602,7 @@ MHD_TLS_openssl_session_handshake (struct MHD_TLS_Session * session)
     }
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_openssl_session_close (struct MHD_TLS_Session * session)
 {
   int result;
@@ -610,25 +624,25 @@ MHD_TLS_openssl_session_close (struct MHD_TLS_Session * session)
     }
 }
 
-bool
+static bool
 MHD_TLS_openssl_session_wants_read (struct MHD_TLS_Session *session)
 {
   return SSL_want_read (session->d.openssl.session);
 }
 
-bool
+static bool
 MHD_TLS_openssl_session_wants_write (struct MHD_TLS_Session *session)
 {
   return SSL_want_write (session->d.openssl.session);
 }
 
-size_t
+static size_t
 MHD_TLS_openssl_session_read_pending (struct MHD_TLS_Session *session)
 {
   return (size_t) SSL_pending (session->d.openssl.session);
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_openssl_session_read (struct MHD_TLS_Session * session,
                               void *buf,
                               size_t size)
@@ -660,7 +674,7 @@ MHD_TLS_openssl_session_read (struct MHD_TLS_Session * session,
     }
 }
 
-ssize_t
+static ssize_t
 MHD_TLS_openssl_session_write (struct MHD_TLS_Session * session,
                                const void *buf,
                                size_t size)
@@ -691,3 +705,27 @@ MHD_TLS_openssl_session_write (struct MHD_TLS_Session * session,
       return MHD_TLS_IO_UNKNOWN_ERROR;
     }
 }
+
+const struct MHD_TLS_Engine tls_engine_openssl =
+{
+  "GnuTLS",
+  MHD_TLS_ENGINE_TYPE_GNUTLS,
+  MHD_TLS_openssl_has_feature,
+  MHD_TLS_openssl_init_context,
+  MHD_TLS_openssl_deinit_context,
+  MHD_TLS_openssl_set_context_certificate_cb,
+  MHD_TLS_openssl_set_context_dh_params,
+  MHD_TLS_openssl_set_context_certificate,
+  MHD_TLS_openssl_set_context_trust_certificate,
+  MHD_TLS_openssl_set_context_client_certificate_mode,
+  MHD_TLS_openssl_set_context_cipher_priorities,
+  MHD_TLS_openssl_init_session,
+  MHD_TLS_openssl_deinit_session,
+  MHD_TLS_openssl_session_handshake,
+  MHD_TLS_openssl_session_close,
+  MHD_TLS_openssl_session_wants_read,
+  MHD_TLS_openssl_session_wants_write,
+  MHD_TLS_openssl_session_read_pending,
+  MHD_TLS_openssl_session_read,
+  MHD_TLS_openssl_session_write
+};

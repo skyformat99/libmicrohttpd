@@ -142,14 +142,10 @@ enum MHD_TLS_ClientCertificateMode
 /**
  * @brief TLS engine structure.
  *
- * It contains a set of engine-specific functions. It also provides a logging
- * function to keep this code insulated of the daemon logging mechanism and
- * ease testing.
+ * It contains a set of engine-specific functions.
  */
 struct MHD_TLS_Engine
 {
-  /* The following fields are set by @c MHD_TLS_create_engine(). */
-
   /**
    * @brief Statically-allocated engine name.
    *
@@ -162,24 +158,7 @@ struct MHD_TLS_Engine
    */
   enum MHD_TLS_EngineType type;
 
-  /* The following fields are set by @c MHD_TLS_set_engine_logging_cb(). */
-
-  /**
-   * @brief Logging callback.
-   */
-  MHD_LogCallback log_cb;
-
-  /**
-   * @brief Opaque data for logging callback.
-   */
-  void *log_data;
-
-  /**
-   * @brief Function to free @c log_data.
-   */
-  MHD_TLS_FreeCallback free_log_data_cb;
-
-  /* The following fields are set by @c MHD_TLS_setup_engine(). */
+  bool (*has_feature)(enum MHD_TLS_FEATURE feature);
 
   bool (*init_context) (struct MHD_TLS_Context *context);
   void (*deinit_context) (struct MHD_TLS_Context * context);
@@ -226,9 +205,32 @@ struct MHD_TLS_Engine
                             size_t size);
 };
 
+/**
+ * @brief TLS context.
+ *
+ * It provides a logging function to keep this code insulated of the daemon
+ * logging mechanism and ease testing.
+ */
 struct MHD_TLS_Context
 {
-  struct MHD_TLS_Engine * engine;
+  const struct MHD_TLS_Engine * engine;
+
+  /* The following fields are set by @c MHD_TLS_set_context_logging_cb(). */
+
+  /**
+   * @brief Logging callback.
+   */
+  MHD_LogCallback log_cb;
+
+  /**
+   * @brief Opaque data for logging callback.
+   */
+  void *log_data;
+
+  /**
+   * @brief Function to free @c log_data.
+   */
+  MHD_TLS_FreeCallback free_log_data_cb;
 
   union
   {
@@ -260,10 +262,6 @@ struct MHD_TLS_Session
 };
 
 #ifdef HAVE_MESSAGES
-void
-MHD_TLS_LOG_ENGINE (struct MHD_TLS_Engine *engine,
-                    const char *format,
-                    ...);
 
 void
 MHD_TLS_LOG_CONTEXT (struct MHD_TLS_Context *context,
@@ -277,7 +275,6 @@ MHD_TLS_LOG_SESSION (struct MHD_TLS_Session *session,
 
 #else /* !HAVE_MESSAGES */
 
-#define MHD_TLS_LOG_ENGINE(engine, format, ...) do {} while(false)
 #define MHD_TLS_LOG_CONTEXT(context, format, ...) do {} while(false)
 #define MHD_TLS_LOG_SESSION(session, format, ...) do {} while(false)
 
@@ -289,46 +286,32 @@ MHD_TLS_global_init (void);
 void
 MHD_TLS_global_deinit (void);
 
-bool
-MHD_TLS_has_engine (enum MHD_TLS_EngineType type);
-
-struct MHD_TLS_Engine *
-MHD_TLS_create_engine (void);
-
-void
-MHD_TLS_del_engine (struct MHD_TLS_Engine *engine);
+const struct MHD_TLS_Engine *
+MHD_TLS_lookup_engine (enum MHD_TLS_EngineType type);
 
 bool
-MHD_TLS_setup_engine (struct MHD_TLS_Engine *engine,
-                      enum MHD_TLS_EngineType type);
-
-enum MHD_TLS_EngineType
-MHD_TLS_get_engine_type (struct MHD_TLS_Engine *engine);
-
-void
-MHD_TLS_set_engine_logging_cb (struct MHD_TLS_Engine *engine,
-                               MHD_LogCallback cb,
-                               void *data,
-                               MHD_TLS_FreeCallback free_data_cb);
-
-void
-MHD_TLS_log_engine (struct MHD_TLS_Engine *engine,
-                    const char *format,
-                    ...);
-void
-MHD_TLS_log_engine_va (struct MHD_TLS_Engine *engine,
-                       const char *format,
-                       va_list args);
+MHD_TLS_engine_has_feature (const struct MHD_TLS_Engine *engine,
+                            enum MHD_TLS_FEATURE feature);
 
 struct MHD_TLS_Context *
-MHD_TLS_create_context (struct MHD_TLS_Engine *engine);
+MHD_TLS_create_context (const struct MHD_TLS_Engine *engine,
+                        MHD_LogCallback cb,
+                        void *data,
+                        MHD_TLS_FreeCallback free_data_cb);
 
 void
 MHD_TLS_del_context (struct MHD_TLS_Context *context);
 
-bool
-MHD_TLS_own_context (struct MHD_TLS_Engine *engine,
-                     struct MHD_TLS_Context *context);
+
+void
+MHD_TLS_log_context (struct MHD_TLS_Context *context,
+                     const char *format,
+                     ...);
+
+void
+MHD_TLS_log_context_va (struct MHD_TLS_Context *context,
+                        const char *format,
+                        va_list args);
 
 bool
 MHD_TLS_set_context_certificate_cb (struct MHD_TLS_Context *context,
@@ -365,10 +348,6 @@ MHD_TLS_create_session (struct MHD_TLS_Context * context,
 
 void
 MHD_TLS_del_session (struct MHD_TLS_Session *session);
-
-bool
-MHD_TLS_own_session (struct MHD_TLS_Context *context,
-                     struct MHD_TLS_Session *session);
 
 ssize_t
 MHD_TLS_session_handshake (struct MHD_TLS_Session * session);

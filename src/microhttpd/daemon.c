@@ -594,46 +594,36 @@ MHD_init_daemon_certificate (struct MHD_Daemon *daemon)
 static bool
 MHD_setup_tls_context (struct MHD_Daemon *daemon)
 {
+  const struct MHD_TLS_Engine *tls_engine;
+
   if (NULL != daemon->tls_context)
     return true;
 
-  if (NULL == daemon->tls_engine)
-    {
-      if (MHD_TLS_ENGINE_TYPE_NONE == daemon->tls_engine_type)
-        {
+  if (MHD_TLS_ENGINE_TYPE_NONE == daemon->tls_engine_type)
+  {
 #ifdef HAVE_MESSAGES
-          MHD_DLOG (daemon,
-                    _("no TLS engine selected\n"));
+    MHD_DLOG (daemon,
+              _("No TLS engine selected\n"));
 #endif
-          return false;
-        }
-      daemon->tls_engine = MHD_TLS_create_engine ();
-      if (NULL == daemon->tls_engine)
-        {
-#ifdef HAVE_MESSAGES
-          MHD_DLOG (daemon,
-                    _("Cannot create TLS engine\n"));
-#endif
-          return false;
-        }
-      MHD_TLS_set_engine_logging_cb (daemon->tls_engine,
-                                     daemon->custom_error_log,
-                                     daemon->custom_error_log_cls,
-                                     NULL);
-      if (!MHD_TLS_setup_engine (daemon->tls_engine,
-                                 daemon->tls_engine_type))
-        {
-          MHD_TLS_del_engine (daemon->tls_engine);
-          daemon->tls_engine = NULL;
-          return false;
-        }
-    }
-
-  daemon->tls_context = MHD_TLS_create_context (daemon->tls_engine);
-  if (NULL == daemon->tls_context)
     return false;
+  }
 
-  return true;
+  tls_engine = MHD_TLS_lookup_engine (daemon->tls_engine_type);
+  if (NULL == tls_engine)
+  {
+#ifdef HAVE_MESSAGES
+    MHD_DLOG (daemon,
+              _("Failed to find TLS engine with type %d\n"),
+              daemon->tls_engine_type);
+#endif
+    return false;
+  }
+
+  daemon->tls_context = MHD_TLS_create_context (tls_engine,
+                                                daemon->custom_error_log,
+                                                daemon->custom_error_log_cls,
+                                                NULL);
+  return (NULL != daemon->tls_context);
 }
 
 
@@ -5003,14 +4993,23 @@ parse_options_va (struct MHD_Daemon *daemon,
           break;
         case MHD_OPTION_TLS_ENGINE_TYPE:
           {
-            enum MHD_TLS_EngineType engine_type = daemon->tls_engine_type;
+            enum MHD_TLS_EngineType tls_engine_type = daemon->tls_engine_type;
 
             if (0 == (daemon->options & MHD_USE_TLS))
               return MHD_YES;
+            tls_engine_type = daemon->tls_engine_type;
             daemon->tls_engine_type = va_arg (ap, enum MHD_TLS_EngineType);
+            if (NULL != daemon->tls_context &&
+                daemon->tls_context->engine->type != daemon->tls_engine_type)
+              {
+                MHD_DLOG(daemon,
+                         _("\nCannot change TLS engine type as context already created\n"));
+                daemon->tls_engine_type = tls_engine_type;
+                return MHD_NO;
+              }
             if (!MHD_setup_tls_context (daemon))
               {
-                daemon->tls_engine_type = engine_type;
+                daemon->tls_engine_type = tls_engine_type;
                 return MHD_NO;
               }
           }
@@ -5449,7 +5448,7 @@ MHD_start_daemon_va (unsigned int flags,
 #endif /* HTTPS_SUPPORT && UPGRADE_SUPPORT */
 #endif
 #ifdef HTTPS_SUPPORT
-  if (MHD_TLS_has_engine (MHD_TLS_ENGINE_TYPE_GNUTLS))
+  if (NULL != MHD_TLS_lookup_engine (MHD_TLS_ENGINE_TYPE_GNUTLS))
     daemon->tls_engine_type = MHD_TLS_ENGINE_TYPE_GNUTLS;
   else
     daemon->tls_engine_type = MHD_TLS_ENGINE_TYPE_NONE;
@@ -6093,8 +6092,6 @@ thread_failed:
 #ifdef HTTPS_SUPPORT
   if (NULL != daemon->tls_context)
     MHD_TLS_del_context (daemon->tls_context);
-  if (NULL != daemon->tls_engine)
-    MHD_TLS_del_engine (daemon->tls_engine);
 #endif /* HTTPS_SUPPORT */
   if (MHD_ITC_IS_VALID_(daemon->itc))
     MHD_itc_destroy_chk_ (daemon->itc);
@@ -6368,8 +6365,6 @@ MHD_stop_daemon (struct MHD_Daemon *daemon)
 #ifdef HTTPS_SUPPORT
   if (NULL != daemon->tls_context)
     MHD_TLS_del_context (daemon->tls_context);
-  if (NULL != daemon->tls_engine)
-    MHD_TLS_del_engine (daemon->tls_engine);
 #endif /* HTTPS_SUPPORT */
 
 #ifdef DAUTH_SUPPORT
@@ -6505,7 +6500,7 @@ MHD_get_version (void)
  * feature is not supported or feature is unknown.
  * @ingroup specialized
  */
-_MHD_EXTERN int
+int
 MHD_is_feature_supported(enum MHD_FEATURE feature)
 {
   switch(feature)
@@ -6517,17 +6512,19 @@ MHD_is_feature_supported(enum MHD_FEATURE feature)
       return MHD_NO;
 #endif
     case MHD_FEATURE_TLS:
-#ifdef HTTPS_SUPPORT
-      return MHD_YES;
-#else  /* ! HTTPS_SUPPORT */
+#if defined(HTTPS_SUPPORT)
+      return MHD_TLS_is_feature_supported (MHD_TLS_ENGINE_TYPE_GNUTLS,
+                                           MHD_TLS_FEATURE_ENGINE_AVAILABLE);
+#else
       return MHD_NO;
-#endif  /* ! HTTPS_SUPPORT */
+#endif  /* !HTTPS_SUPPORT || !HAVE_GNUTLS */
     case MHD_FEATURE_HTTPS_CERT_CALLBACK:
-#if defined(HTTPS_SUPPORT) && GNUTLS_VERSION_MAJOR >= 3
-      return MHD_YES;
-#else  /* !HTTPS_SUPPORT || GNUTLS_VERSION_MAJOR < 3 */
+#if defined(HTTPS_SUPPORT)
+      return MHD_TLS_is_feature_supported (MHD_TLS_ENGINE_TYPE_GNUTLS,
+                                           MHD_TLS_FEATURE_CERT_CALLBACK);
+#else  /* !HTTPS_SUPPORT */
       return MHD_NO;
-#endif /* !HTTPS_SUPPORT || GNUTLS_VERSION_MAJOR < 3 */
+#endif /* !HTTPS_SUPPORT */
     case MHD_FEATURE_IPv6:
 #ifdef HAVE_INET6
       return MHD_YES;
@@ -6589,11 +6586,12 @@ MHD_is_feature_supported(enum MHD_FEATURE feature)
       return MHD_NO;
 #endif
     case MHD_FEATURE_HTTPS_KEY_PASSWORD:
-#if defined(HTTPS_SUPPORT) && GNUTLS_VERSION_NUMBER >= 0x030111
-      return MHD_YES;
-#else  /* !HTTPS_SUPPORT || GNUTLS_VERSION_NUMBER < 0x030111 */
+#if defined(HTTPS_SUPPORT)
+      return MHD_TLS_is_feature_supported (MHD_TLS_ENGINE_TYPE_GNUTLS,
+                                           MHD_TLS_FEATURE_KEY_PASSWORD);
+#else  /* !HTTPS_SUPPORT */
       return MHD_NO;
-#endif /* !HTTPS_SUPPORT || GNUTLS_VERSION_NUMBER < 0x030111 */
+#endif /* !HTTPS_SUPPORT */
     case MHD_FEATURE_LARGE_FILE:
 #if defined(HAVE_PREAD64) || defined(_WIN32)
       return MHD_YES;
@@ -6624,6 +6622,23 @@ MHD_is_feature_supported(enum MHD_FEATURE feature)
 #endif
     }
   return MHD_NO;
+}
+
+
+int
+MHD_TLS_is_feature_supported (enum MHD_TLS_EngineType engine_type,
+                              enum MHD_TLS_FEATURE feature)
+{
+  const struct MHD_TLS_Engine *engine;
+
+  engine = MHD_TLS_lookup_engine (engine_type);
+  if (NULL == engine)
+    return MHD_NO;
+
+  if (MHD_TLS_FEATURE_ENGINE_AVAILABLE)
+    return MHD_YES;
+  return (MHD_TLS_engine_has_feature (engine,
+                                      feature) ? MHD_YES : MHD_NO);
 }
 
 
