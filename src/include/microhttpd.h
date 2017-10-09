@@ -1307,7 +1307,6 @@ enum MHD_OPTION
    * Daemon credentials type.
    * Followed by an argument of type
    * `gnutls_credentials_type_t`.
-   * TODO: update for TLS engine architecture.
    */
   MHD_OPTION_HTTPS_CRED_TYPE = 10,
 
@@ -1828,7 +1827,6 @@ enum MHD_ConnectionInfoType
    * a `union MHD_ConnectionInfo *` and that union contains a `struct
    * sockaddr *`).
    * @ingroup request
-   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_CLIENT_ADDRESS,
 
@@ -1844,7 +1842,6 @@ enum MHD_ConnectionInfoType
    * implemented, deprecated).  Use #MHD_CONNECTION_INFO_GNUTLS_SESSION
    * when using the GnuTLS engine to get the `gnutls_session_t` and then call
    * gnutls_certificate_get_peers().
-   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_GNUTLS_CLIENT_CERT,
 
