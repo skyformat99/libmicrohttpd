@@ -4943,10 +4943,30 @@ parse_options_va (struct MHD_Daemon *daemon,
           break;
         case MHD_OPTION_HTTPS_CRED_TYPE:
 #ifdef HAVE_GNUTLS
-          /* TODO: openssl */
           {
-            gnutls_credentials_type_t cred_type = va_arg (ap,
-                                                          int);
+            gnutls_credentials_type_t cred_type;
+
+            if (0 == (daemon->options & MHD_USE_TLS))
+              {
+#ifdef HAVE_MESSAGES
+                MHD_DLOG (daemon,
+                          _("MHD HTTPS option %d passed to MHD but MHD_USE_TLS not set\n"),
+                          opt);
+#endif
+                return MHD_YES;
+              }
+            if (!MHD_setup_tls_context (daemon))
+              return MHD_NO;
+            if (MHD_TLS_ENGINE_TYPE_GNUTLS != daemon->tls_context->engine->type)
+              {
+#ifdef HAVE_MESSAGES
+                MHD_DLOG (daemon,
+                          _("MHD_OPTION_HTTPS_CRED_TYPE option passed but not using GnuTLS\n"));
+#endif
+                return MHD_NO;
+              }
+            cred_type = va_arg (ap,
+                                int);
             if (cred_type != GNUTLS_CRD_CERTIFICATE)
               {
                 MHD_DLOG (daemon,
@@ -4955,6 +4975,10 @@ parse_options_va (struct MHD_Daemon *daemon,
                 return MHD_NO;
               }
           }
+#else /* !HAVE_GNUTLS */
+          MHD_DLOG (daemon,
+                    _("MHD_OPTION_HTTPS_CRED_TYPE option passed but no support for GnuTLS\n"));
+          return MHD_NO;
 #endif
           break;
         case MHD_OPTION_HTTPS_MEM_DHPARAMS:
@@ -5144,7 +5168,11 @@ parse_options_va (struct MHD_Daemon *daemon,
 						(gnutls_credentials_type_t) oa[i].value,
 						MHD_OPTION_END))
 		    return MHD_NO;
-#endif
+#else /* !HAVE_GNUTLS */
+      MHD_DLOG (daemon,
+                _("MHD_OPTION_HTTPS_CRED_TYPE option passed but no support for GnuTLS\n"));
+      return MHD_NO;
+#endif /* !HAVE_GNUTLS */
 		  break;
 #endif /* HTTPS_SUPPORT */
                 case MHD_OPTION_TLS_ENGINE_TYPE:
