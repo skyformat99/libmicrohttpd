@@ -1795,7 +1795,7 @@ enum MHD_ConnectionInfoType
 
   /**
    * Get the gnuTLS client certificate handle.  Dysfunctional (never
-   * implemented, deprecated).  Use #MHD_CONNECTION_INFO_TLS_SESSION
+   * implemented, deprecated).  Use #MHD_CONNECTION_INFO_GNUTLS_SESSION
    * when using the GnuTLS engine to get the `gnutls_session_t` and then call
    * gnutls_certificate_get_peers().
    */
@@ -3350,10 +3350,12 @@ enum MHD_FEATURE
    * #MHD_OPTION_HTTPS_MEM_DHPARAMS, #MHD_OPTION_HTTPS_CRED_TYPE,
    * #MHD_OPTION_HTTPS_PRIORITIES can be used.
    *
-   * This is equivalent to the following call:
+   * For compatibility reasons, this call is equivalent to:
    * @code
    * MHD_TLS_is_feature_supported (MHD_TLS_ENGINE_TYPE_GNUTLS, MHD_TLS_FEATURE_ENGINE_AVAILABLE)
    * @endcode
+   *
+   * @deprecated use TLS feature #MHD_TLS_FEATURE_ENGINE_AVAILABLE instead
    */
   MHD_FEATURE_TLS = 2,
   MHD_FEATURE_SSL = 2,
@@ -3362,10 +3364,12 @@ enum MHD_FEATURE
    * Get whether option #MHD_OPTION_HTTPS_CERT_CALLBACK is
    * supported.
    *
-   * This is equivalent to the following call:
+   * For compatibility reasons, this call is equivalent to:
    * @code
    * MHD_TLS_is_feature_supported (MHD_TLS_ENGINE_TYPE_GNUTLS, MHS_TLS_FEATURE_CERT_CALLBACK)
    * @endcode
+   *
+   * @deprecated use TLS feature #MHD_TLS_FEATURE_CERT_CALLBACK instead
    */
   MHD_FEATURE_HTTPS_CERT_CALLBACK = 3,
 
@@ -3444,10 +3448,12 @@ enum MHD_FEATURE
    * supported. If supported then option
    * ::MHD_OPTION_HTTPS_KEY_PASSWORD can be used.
    *
-   * This is equivalent to the following call:
+   * For compatibility reasons, this call is equivalent to:
    * @code
    * MHD_TLS_is_feature_supported(MHD_TLS_ENGINE_TYPE_GNUTLS, MHS_TLS_FEATURE_KEY_PASSWORD)
    * @endcode
+   *
+   * @deprecated use TLS feature #MHD_TLS_FEATURE_KEY_PASSWORD instead
   */
   MHD_FEATURE_HTTPS_KEY_PASSWORD = 14,
 
