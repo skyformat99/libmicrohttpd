@@ -5020,6 +5020,14 @@ parse_options_va (struct MHD_Daemon *daemon,
             return MHD_YES;
           if (!MHD_setup_tls_context (daemon))
             return MHD_NO;
+          if (MHD_TLS_ENGINE_TYPE_GNUTLS != daemon->tls_context->engine->type)
+            {
+#ifdef HAVE_MESSAGES
+              MHD_DLOG (daemon,
+                        _("MHD_OPTION_HTTPS_CERT_CALLBACK option passed but not using GnuTLS\n"));
+#endif
+              return MHD_NO;
+            }
           daemon->cert_callback = va_arg (ap,
                                           MHD_TLS_GetCertificateCallback);
           break;
@@ -5055,6 +5063,14 @@ parse_options_va (struct MHD_Daemon *daemon,
                                                       va_arg (ap,
                                                               const char *)))
             return MHD_NO;
+          break;
+        case MHD_OPTION_TLS_CERT_CALLBACK:
+          if (0 == (daemon->options & MHD_USE_TLS))
+            return MHD_YES;
+          if (!MHD_setup_tls_context (daemon))
+            return MHD_NO;
+          daemon->cert_callback = va_arg (ap,
+                                          MHD_TLS_GetCertificateCallback);
           break;
 #endif /* HTTPS_SUPPORT */
 #ifdef DAUTH_SUPPORT
@@ -5213,7 +5229,8 @@ parse_options_va (struct MHD_Daemon *daemon,
 		case MHD_OPTION_HTTPS_PRIORITIES:
 		case MHD_OPTION_TLS_PRIORITIES:
 		case MHD_OPTION_ARRAY:
-                case MHD_OPTION_HTTPS_CERT_CALLBACK:
+ 		case MHD_OPTION_HTTPS_CERT_CALLBACK:
+ 		case MHD_OPTION_TLS_CERT_CALLBACK:
 		  if (MHD_YES != parse_options (daemon,
 						servaddr,
 						opt,

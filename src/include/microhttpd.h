@@ -1317,7 +1317,7 @@ enum MHD_OPTION
    *
    * Setting this option will fail if the TLS engine is not GnuTLS.
    *
-   * @deprecated use MHD_OPTION_TLS_PRIORITIES instead
+   * @deprecated use #MHD_OPTION_TLS_PRIORITIES instead
    */
   MHD_OPTION_HTTPS_PRIORITIES = 11,
 
@@ -1443,7 +1443,8 @@ enum MHD_OPTION
    * based on the SNI information provided.  The callback is expected
    * to access the SNI data using `gnutls_server_name_get()`.
    * Using this option requires GnuTLS 3.0 or higher.
-   * TODO: update for TLS engine architecture.
+   *
+   * @deprecated use #MHD_OPTION_TLS_CERT_CALLBACK instead
    */
   MHD_OPTION_HTTPS_CERT_CALLBACK = 22,
 
@@ -1546,6 +1547,28 @@ enum MHD_OPTION
    * For OpenSSL, it must use the format expected by @c SSL_CTX_set_cipher_list().
    */
     MHD_OPTION_TLS_PRIORITIES = 31,
+
+  /**
+   * Use a callback to determine which X.509 certificate should be
+   * used for a given HTTPS connection.
+   * This option provides an
+   * alternative to #MHD_OPTION_HTTPS_MEM_KEY,
+   * #MHD_OPTION_HTTPS_MEM_CERT.  You must use this version if
+   * multiple domains are to be hosted at the same IP address using
+   * TLS's Server Name Indication (SNI) extension.  In this case,
+   * the callback is expected to select the correct certificate
+   * based on the SNI information provided.  The callback is expected
+   * to access the SNI data using `gnutls_server_name_get()`.
+   * Using this option requires GnuTLS 3.0 or higher.
+   *
+   * For GnuTLS, it must be followed by an argument of type
+   * `gnutls_certificate_retrieve_function2 *`.
+   *
+   * For OpenSSL, it must be followed by the same callback expected by @c
+   * SSL_CTX_set_cert_cb(). It will receive the OpenSSL SSL session as its
+   * first parameter. The second parameter will always be @c NULL.
+   */
+    MHD_OPTION_TLS_CERT_CALLBACK = 32
 };
 
 /**
