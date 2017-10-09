@@ -434,6 +434,24 @@ MHD_TLS_gnutls_deinit_session (struct MHD_TLS_Session * session)
   gnutls_deinit (session->d.gnutls.session);
 }
 
+static enum MHD_TLS_ProtocolVersion
+MHD_TLS_gnutls_get_session_protocol_version (struct MHD_TLS_Session *session)
+{
+  switch (gnutls_protocol_get_version (session->d.gnutls.session))
+    {
+    case GNUTLS_SSL3:
+      return MHD_TLS_PROTOCOL_VERSION_SSL_V3;
+    case GNUTLS_TLS1_0:
+      MHD_TLS_PROTOCOL_VERSION_TLS_V1_0;
+    case GNUTLS_TLS1_1:
+      return MHD_TLS_PROTOCOL_VERSION_TLS_V1_1;
+    case GNUTLS_TLS1_2:
+      return MHD_TLS_PROTOCOL_VERSION_TLS_V1_2;
+    default:
+      return MHD_TLS_PROTOCOL_VERSION_UNKNOWN;
+    }
+}
+
 static ssize_t
 MHD_TLS_gnutls_session_handshake (struct MHD_TLS_Session * session)
 {
@@ -547,6 +565,7 @@ const struct MHD_TLS_Engine tls_engine_gnutls =
   MHD_TLS_gnutls_set_context_cipher_priorities,
   MHD_TLS_gnutls_init_session,
   MHD_TLS_gnutls_deinit_session,
+  MHD_TLS_gnutls_get_session_protocol_version,
   MHD_TLS_gnutls_session_handshake,
   MHD_TLS_gnutls_session_close,
   MHD_TLS_gnutls_session_wants_read,

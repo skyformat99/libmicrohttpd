@@ -189,6 +189,8 @@ struct MHD_TLS_Engine
                         void *cb_data);
   void (*deinit_session) (struct MHD_TLS_Session * session);
 
+  enum MHD_TLS_ProtocolVersion (*get_session_protocol_version) (struct MHD_TLS_Session *session);
+
   ssize_t (*session_handshake) (struct MHD_TLS_Session * session);
   ssize_t (*session_close) (struct MHD_TLS_Session * session);
 
@@ -348,6 +350,9 @@ MHD_TLS_create_session (struct MHD_TLS_Context * context,
 
 void
 MHD_TLS_del_session (struct MHD_TLS_Session *session);
+
+enum MHD_TLS_ProtocolVersion
+MHD_TLS_get_session_protocol_version (struct MHD_TLS_Session *session);
 
 ssize_t
 MHD_TLS_session_handshake (struct MHD_TLS_Session * session);

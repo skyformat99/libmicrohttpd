@@ -893,6 +893,42 @@ enum MHD_TLS_EngineType
 };
 
 /**
+ * @brief TLS protocol version.
+ */
+enum MHD_TLS_ProtocolVersion
+{
+  /**
+   * @brief Unknown version.
+   */
+  MHD_TLS_PROTOCOL_VERSION_UNKNOWN = 0,
+
+  /**
+   * @brief SSL v3.
+   */
+  MHD_TLS_PROTOCOL_VERSION_SSL_V3 = 1,
+
+  /**
+   * @brief TLS v1.0.
+   */
+  MHD_TLS_PROTOCOL_VERSION_TLS_V1_0 = 2,
+
+  /**
+   * @brief TLS v1.1.
+   */
+  MHD_TLS_PROTOCOL_VERSION_TLS_V1_1 = 3,
+
+  /**
+   * @brief TLS v1.2.
+   */
+  MHD_TLS_PROTOCOL_VERSION_TLS_V1_2 = 4,
+
+  /**
+   * @brief Upper-bound value.
+   */
+  MHD_TLS_PROTOCOL_VERSION_MAX = MHD_TLS_PROTOCOL_VERSION_TLS_V1_2
+};
+
+/**
  * @brief Flags for the `struct MHD_Daemon`.
  *
  * Note that MHD will run automatically in background thread(s) only
@@ -1795,6 +1831,11 @@ union MHD_ConnectionInfo
    * the "socket_context" of the #MHD_NotifyConnectionCallback.
    */
   void *socket_context;
+
+  /**
+   * TLS protocol version.
+   */
+  enum MHD_TLS_ProtocolVersion tls_protocol_version;
 };
 
 
@@ -1817,7 +1858,6 @@ enum MHD_ConnectionInfoType
    *
    * Takes no extra arguments.
    * @ingroup request
-   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_PROTOCOL,
 
@@ -1884,7 +1924,13 @@ enum MHD_ConnectionInfoType
    * Return length of the client's HTTP request header.
    * @ingroup request
    */
-  MHD_CONNECTION_INFO_REQUEST_HEADER_SIZE
+  MHD_CONNECTION_INFO_REQUEST_HEADER_SIZE,
+
+  /**
+   * Get the TLS protocol version used.
+   * @ingroup request
+   */
+  MHD_CONNECTION_INFO_TLS_PROTOCOL_VERSION
 };
 
 

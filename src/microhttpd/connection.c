@@ -3496,6 +3496,11 @@ MHD_get_connection_info (struct MHD_Connection *connection,
 #else
       return NULL;
 #endif
+    case MHD_CONNECTION_INFO_TLS_PROTOCOL_VERSION:
+      if (NULL == connection->tls_session)
+        return NULL;
+      connection->tls_protocol_version = MHD_TLS_get_session_protocol_version (connection->tls_session);
+      return (const union MHD_ConnectionInfo *) &connection->tls_protocol_version;
 #endif /* HTTPS_SUPPORT */
     case MHD_CONNECTION_INFO_CLIENT_ADDRESS:
       return (const union MHD_ConnectionInfo *) &connection->addr;

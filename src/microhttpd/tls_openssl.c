@@ -580,6 +580,28 @@ MHD_TLS_openssl_deinit_session (struct MHD_TLS_Session * session)
   SSL_free (session->d.openssl.session);
 }
 
+static enum MHD_TLS_ProtocolVersion
+MHD_TLS_openssl_get_session_protocol_version (struct MHD_TLS_Session *session)
+{
+  const char *version;
+
+  version = SSL_get_version (session->d.openssl.session);
+  if (0 == strcmp ("SSLv3",
+                   version))
+    return MHD_TLS_PROTOCOL_VERSION_SSL_V3;
+  else if (0 == strcmp ("TLSv1",
+                        version))
+    return MHD_TLS_PROTOCOL_VERSION_TLS_V1_0;
+  else if (0 == strcmp ("TLSv1.1",
+                        version))
+    return MHD_TLS_PROTOCOL_VERSION_TLS_V1_1;
+  else if (0 == strcmp ("TLSv1.2",
+                        version))
+    return MHD_TLS_PROTOCOL_VERSION_TLS_V1_2;
+  else
+    return MHD_TLS_PROTOCOL_VERSION_UNKNOWN;
+}
+
 static ssize_t
 MHD_TLS_openssl_session_handshake (struct MHD_TLS_Session * session)
 {
