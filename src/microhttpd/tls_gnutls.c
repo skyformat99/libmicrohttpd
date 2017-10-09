@@ -434,6 +434,12 @@ MHD_TLS_gnutls_deinit_session (struct MHD_TLS_Session * session)
   gnutls_deinit (session->d.gnutls.session);
 }
 
+static void *
+MHD_TLS_gnutls_get_specific_session (struct MHD_TLS_Session * session)
+{
+  return session->d.gnutls.session;
+}
+
 static enum MHD_TLS_ProtocolVersion
 MHD_TLS_gnutls_get_session_protocol_version (struct MHD_TLS_Session *session)
 {
@@ -565,6 +571,7 @@ const struct MHD_TLS_Engine tls_engine_gnutls =
   MHD_TLS_gnutls_set_context_cipher_priorities,
   MHD_TLS_gnutls_init_session,
   MHD_TLS_gnutls_deinit_session,
+  MHD_TLS_gnutls_get_specific_session,
   MHD_TLS_gnutls_get_session_protocol_version,
   MHD_TLS_gnutls_session_handshake,
   MHD_TLS_gnutls_session_close,

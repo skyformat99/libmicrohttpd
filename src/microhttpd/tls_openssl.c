@@ -580,6 +580,12 @@ MHD_TLS_openssl_deinit_session (struct MHD_TLS_Session * session)
   SSL_free (session->d.openssl.session);
 }
 
+static void *
+MHD_TLS_openssl_get_specific_session (struct MHD_TLS_Session * session)
+{
+  return session->d.openssl.session;
+}
+
 static enum MHD_TLS_ProtocolVersion
 MHD_TLS_openssl_get_session_protocol_version (struct MHD_TLS_Session *session)
 {
@@ -743,6 +749,7 @@ const struct MHD_TLS_Engine tls_engine_openssl =
   MHD_TLS_openssl_set_context_cipher_priorities,
   MHD_TLS_openssl_init_session,
   MHD_TLS_openssl_deinit_session,
+  MHD_TLS_openssl_get_specific_session,
   MHD_TLS_openssl_session_handshake,
   MHD_TLS_openssl_session_close,
   MHD_TLS_openssl_session_wants_read,

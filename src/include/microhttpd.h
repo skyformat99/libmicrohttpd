@@ -1804,10 +1804,13 @@ union MHD_ConnectionInfo
   size_t header_size;
 
   /**
-   * GNUtls session handle, of type "gnutls_session_t".
-   * TODO: update for TLS engine architecture.
+   * TLS-engine-specific session handle.
+   *
+   * For GnuTLS, it's a pointer of type @c gnutls_session_t.
+   *
+   * For OpenSSL, it's a pointer of type @c SSL.
    */
-  void * /* gnutls_session_t */ tls_session;
+  void * tls_session;
 
   /**
    * GNUtls client certificate handle, of type "gnutls_x509_crt_t".
@@ -1873,7 +1876,6 @@ enum MHD_ConnectionInfoType
   /**
    * Get the gnuTLS session handle.
    * @ingroup request
-   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_GNUTLS_SESSION,
 
@@ -1930,7 +1932,13 @@ enum MHD_ConnectionInfoType
    * Get the TLS protocol version used.
    * @ingroup request
    */
-  MHD_CONNECTION_INFO_TLS_PROTOCOL_VERSION
+  MHD_CONNECTION_INFO_TLS_PROTOCOL_VERSION,
+
+  /**
+   * Get the TLS-engine-specific session handle.
+   * @ingroup request
+   */
+  MHD_CONNECTION_INFO_TLS_SESSION
 };
 
 

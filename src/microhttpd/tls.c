@@ -373,6 +373,14 @@ MHD_TLS_del_session (struct MHD_TLS_Session *session)
   free (session);
 }
 
+void *
+MHD_TLS_get_specific_session (struct MHD_TLS_Session * session)
+{
+  if (NULL == session)
+    return;
+  return session->context->engine->get_specific_session (session);
+}
+
 enum MHD_TLS_ProtocolVersion
 MHD_TLS_get_session_protocol_version (struct MHD_TLS_Session *session)
 {

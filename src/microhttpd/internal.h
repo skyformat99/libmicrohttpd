@@ -981,6 +981,11 @@ struct MHD_Connection
   int tls_protocol_version;
 
   /**
+   * Memory location to return for protocol session info.
+   */
+  void *tls_specific_session;
+
+  /**
    * Could it be that we are ready to read due to TLS buffers
    * even though the socket is not?
    */
