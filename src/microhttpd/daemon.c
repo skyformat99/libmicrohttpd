@@ -5051,8 +5051,10 @@ parse_options_va (struct MHD_Daemon *daemon,
             return MHD_YES;
           if (!MHD_setup_tls_context (daemon))
             return MHD_NO;
-          daemon->cert_callback = va_arg (ap,
-                                          MHD_TLS_GetCertificateCallback);
+          if (!MHD_TLS_set_context_cipher_priorities (daemon->tls_context,
+                                                      va_arg (ap,
+                                                              const char *)))
+            return MHD_NO;
           break;
 #endif /* HTTPS_SUPPORT */
 #ifdef DAUTH_SUPPORT
