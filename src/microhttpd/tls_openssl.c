@@ -750,6 +750,7 @@ const struct MHD_TLS_Engine tls_engine_openssl =
   MHD_TLS_openssl_init_session,
   MHD_TLS_openssl_deinit_session,
   MHD_TLS_openssl_get_specific_session,
+  MHD_TLS_openssl_get_session_protocol_version,
   MHD_TLS_openssl_session_handshake,
   MHD_TLS_openssl_session_close,
   MHD_TLS_openssl_session_wants_read,

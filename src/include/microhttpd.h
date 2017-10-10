@@ -1853,14 +1853,17 @@ enum MHD_ConnectionInfoType
   /**
    * What cipher algorithm is being used.
    * Takes no extra arguments.
+   * It's made available in attribute #MHD_ConnectionInfo::cipher_algorithm,
+   * but when using the GnuTLS TLS engine.
    * @ingroup request
-   * TODO: update for TLS engine architecture.
    */
   MHD_CONNECTION_INFO_CIPHER_ALGO,
 
   /**
-   *
+   * What version of the TLS protocol is being used.
    * Takes no extra arguments.
+   * It's made available in attribute #MHD_ConnectionInfo::tls_session, but
+   * only when using the GnuTLS TLS engine.
    * @ingroup request
    */
   MHD_CONNECTION_INFO_PROTOCOL,
@@ -1875,13 +1878,14 @@ enum MHD_ConnectionInfoType
   MHD_CONNECTION_INFO_CLIENT_ADDRESS,
 
   /**
-   * Get the gnuTLS session handle.
+   * Get the GnuTLS session handle.
+   * It's made available in attribute #MHD_ConnectionInfo::tls_session.
    * @ingroup request
    */
   MHD_CONNECTION_INFO_GNUTLS_SESSION,
 
   /**
-   * Get the gnuTLS client certificate handle.  Dysfunctional (never
+   * Get the GnuTLS client certificate handle.  Dysfunctional (never
    * implemented, deprecated).  Use #MHD_CONNECTION_INFO_GNUTLS_SESSION
    * when using the GnuTLS engine to get the `gnutls_session_t` and then call
    * gnutls_certificate_get_peers().
@@ -1931,12 +1935,14 @@ enum MHD_ConnectionInfoType
 
   /**
    * Get the TLS protocol version used.
+   * It's made available in #MHD_ConnectionInfo::tls_protocol_version.
    * @ingroup request
    */
   MHD_CONNECTION_INFO_TLS_PROTOCOL_VERSION,
 
   /**
    * Get the TLS-engine-specific session handle.
+   * It's made available in attribute #MHD_ConnectionInfo::tls_session.
    * @ingroup request
    */
   MHD_CONNECTION_INFO_TLS_SESSION
