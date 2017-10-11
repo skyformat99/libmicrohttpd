@@ -172,7 +172,9 @@ main (int argc, char *const *argv)
         test_wrap (test_name, &test_single_client,
                    NULL,
                    MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_TLS | MHD_USE_ERROR_LOG | MHD_USE_EPOLL,
-                   aes256_sha, CURL_SSLVERSION_TLSv1, MHD_OPTION_HTTPS_MEM_KEY,
+                   aes256_sha, CURL_SSLVERSION_TLSv1,
+                   MHD_OPTION_TLS_ENGINE_TYPE, tls_engine_type,
+                   MHD_OPTION_HTTPS_MEM_KEY,
                    srv_key_pem, MHD_OPTION_HTTPS_MEM_CERT,
                    srv_self_signed_cert_pem, MHD_OPTION_END);
 #endif
@@ -184,7 +186,9 @@ main (int argc, char *const *argv)
         test_wrap (test_name, &test_single_client,
                    NULL,
                    MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_TLS | MHD_USE_ERROR_LOG,
-                   aes256_sha, CURL_SSLVERSION_TLSv1, MHD_OPTION_HTTPS_MEM_KEY,
+                   aes256_sha, CURL_SSLVERSION_TLSv1,
+                   MHD_OPTION_TLS_ENGINE_TYPE, tls_engine_type,
+                   MHD_OPTION_HTTPS_MEM_KEY,
                    srv_key_pem, MHD_OPTION_HTTPS_MEM_CERT,
                    srv_self_signed_cert_pem, MHD_OPTION_END);
 #ifdef EPOLL_SUPPORT
@@ -196,7 +200,9 @@ main (int argc, char *const *argv)
         test_wrap (test_name,
                    &test_parallel_clients, NULL,
                    MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_TLS | MHD_USE_ERROR_LOG | MHD_USE_EPOLL,
-                   aes256_sha, CURL_SSLVERSION_TLSv1, MHD_OPTION_HTTPS_MEM_KEY,
+                   aes256_sha, CURL_SSLVERSION_TLSv1,
+                   MHD_OPTION_TLS_ENGINE_TYPE, tls_engine_type,
+                   MHD_OPTION_HTTPS_MEM_KEY,
                    srv_key_pem, MHD_OPTION_HTTPS_MEM_CERT,
                    srv_self_signed_cert_pem, MHD_OPTION_END);
 #endif
@@ -208,7 +214,9 @@ main (int argc, char *const *argv)
         test_wrap (test_name,
                    &test_parallel_clients, NULL,
                    MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_TLS | MHD_USE_ERROR_LOG,
-                   aes256_sha, CURL_SSLVERSION_TLSv1, MHD_OPTION_HTTPS_MEM_KEY,
+                   aes256_sha, CURL_SSLVERSION_TLSv1,
+                   MHD_OPTION_TLS_ENGINE_TYPE, tls_engine_type,
+                   MHD_OPTION_HTTPS_MEM_KEY,
                    srv_key_pem, MHD_OPTION_HTTPS_MEM_CERT,
                    srv_self_signed_cert_pem, MHD_OPTION_END);
     }
