@@ -68,6 +68,9 @@ struct CipherDef
   char *curlname;
 };
 
+int iterate_over_available_tls_engines (int i,
+                                        enum MHD_TLS_EngineType *type,
+                                        const char **name);
 
 int curl_check_version (const char *req_version, ...);
 int curl_uses_nss_ssl ();
