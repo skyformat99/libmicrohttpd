@@ -36,6 +36,16 @@ extern const char srv_self_signed_cert_pem[];
 
 struct MHD_Daemon *d;
 
+static const struct
+{
+  enum MHD_TLS_EngineType type;
+  const char *priorities;
+} priorities_by_engine[MHD_TLS_ENGINE_TYPE_MAX] =
+{
+  { MHD_TLS_ENGINE_TYPE_GNUTLS, "NORMAL:+ARCFOUR-128" },
+  { MHD_TLS_ENGINE_TYPE_OPENSSL, "DEFAULT:RC4" }
+};
+
 /*
  * HTTP access handler call back
  * used to query negotiated security parameters
@@ -55,12 +65,12 @@ query_session_ahc (void *cls, struct MHD_Connection *connection,
       return MHD_YES;
     }
 
-  if (GNUTLS_TLS1_1 !=
+  if (MHD_TLS_PROTOCOL_VERSION_TLS_V1_1 !=
       (ret = MHD_get_connection_info
        (connection,
-	MHD_CONNECTION_INFO_PROTOCOL)->protocol))
+	MHD_CONNECTION_INFO_TLS_PROTOCOL_VERSION)->tls_protocol_version))
     {
-      if (GNUTLS_TLS1_2 == ret)
+      if (MHD_TLS_PROTOCOL_VERSION_TLS_V1_2 == ret)
       {
         /* as usual, TLS implementations sometimes don't
            quite do what was asked, just mildly complain... */
@@ -72,7 +82,7 @@ query_session_ahc (void *cls, struct MHD_Connection *connection,
         /* really different version... */
         fprintf (stderr,
                  "Error: requested protocol mismatch (wanted %d, got %d)\n",
-                 GNUTLS_TLS1_1,
+                 MHD_TLS_PROTOCOL_VERSION_TLS_V1_1,
                  ret);
         return -1;
       }
@@ -92,12 +102,27 @@ query_session_ahc (void *cls, struct MHD_Connection *connection,
  */
 #if LIBCURL_VERSION_NUM >= 0x072200
 static int
-test_query_session ()
+test_query_session (enum MHD_TLS_EngineType tls_engine_type,
+                    const char *tls_engine_name)
 {
   CURL *c;
   struct CBC cbc;
   CURLcode errornum;
   char url[256];
+  const char *priorities;
+  int i;
+
+  for (i = 0; i < MHD_TLS_ENGINE_TYPE_MAX; ++i)
+    if (priorities_by_engine[i].type == tls_engine_type)
+      break;
+  if (i >= MHD_TLS_ENGINE_TYPE_MAX)
+    {
+      fprintf (stderr,
+               "No definition of HTTPS priorities for TLS engine %s\n",
+               tls_engine_name);
+      return -1;
+    }
+  priorities = priorities_by_engine[i].priorities;
 
   if (NULL == (cbc.buf = malloc (sizeof (char) * 255)))
     return 16;
@@ -110,7 +135,8 @@ test_query_session ()
   d = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_TLS |
                         MHD_USE_ERROR_LOG, DEAMON_TEST_PORT,
                         NULL, NULL, &query_session_ahc, NULL,
-			MHD_OPTION_HTTPS_PRIORITIES, "NORMAL:+ARCFOUR-128",
+                        MHD_OPTION_TLS_ENGINE_TYPE, tls_engine_type,
+                        MHD_OPTION_HTTPS_PRIORITIES, priorities,
                         MHD_OPTION_HTTPS_MEM_KEY, srv_key_pem,
                         MHD_OPTION_HTTPS_MEM_CERT, srv_self_signed_cert_pem,
                         MHD_OPTION_END);
@@ -171,6 +197,9 @@ int
 main (int argc, char *const *argv)
 {
   unsigned int errorCount = 0;
+  int tls_engine_index;
+  enum MHD_TLS_EngineType tls_engine_type;
+  const char *tls_engine_name;
   const char *ssl_version;
 
   gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
@@ -197,7 +226,13 @@ main (int argc, char *const *argv)
     return 77;
   }
 #if LIBCURL_VERSION_NUM >= 0x072200
-  errorCount += test_query_session ();
+  tls_engine_index = 0;
+  while (0 <= (tls_engine_index = iterate_over_available_tls_engines (tls_engine_index,
+                                                                      &tls_engine_type,
+                                                                      &tls_engine_name)))
+    {
+      errorCount += test_query_session (tls_engine_type, tls_engine_name);
+    }
 #endif
   print_test_result (errorCount, argv[0]);
   curl_global_cleanup ();
