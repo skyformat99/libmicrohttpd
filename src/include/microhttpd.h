@@ -1947,7 +1947,6 @@ union MHD_ConnectionInfo
 
   /**
    * Cipher algorithm used, of type "enum gnutls_cipher_algorithm".
-   * TODO: update for TLS engine architecture.
    */
   int /* enum gnutls_cipher_algorithm */ cipher_algorithm;
 

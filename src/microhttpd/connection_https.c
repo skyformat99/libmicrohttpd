@@ -35,7 +35,7 @@
 
 
 /**
- * Give gnuTLS chance to work on the TLS handshake.
+ * Give TLS engine a chance to work on the TLS handshake.
  *
  * @param connection connection to handshake on
  * @return #MHD_YES on error or if the handshake is progressing
