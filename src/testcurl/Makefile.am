@@ -70,7 +70,7 @@ if HAVE_POSTPROCESSOR
   test_post_loop11
 endif
 
-noinst_PROGRAMS = \
+check_PROGRAMS += \
   test_options
 
 if ENABLE_DAUTH
