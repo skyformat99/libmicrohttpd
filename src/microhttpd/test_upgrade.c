@@ -1229,6 +1229,7 @@ main (int argc,
     printf ("PASSED: Upgrade with internal poll.\n");
   res = test_upgrade (MHD_USE_POLL_INTERNAL_THREAD,
                       2);
+  error_count += res;
   if (res)
     fprintf (stderr, "FAILED: Upgrade with internal poll with thread pool, return code %d.\n", res);
   else if (verbose)
@@ -1237,12 +1238,14 @@ main (int argc,
 #ifdef EPOLL_SUPPORT
   res = test_upgrade (MHD_USE_EPOLL_INTERNAL_THREAD,
                       0);
+  error_count += res;
   if (res)
     fprintf (stderr, "FAILED: Upgrade with internal epoll, return code %d.\n", res);
   else if (verbose)
     printf ("PASSED: Upgrade with internal epoll.\n");
   res = test_upgrade (MHD_USE_EPOLL_INTERNAL_THREAD,
                       2);
+  error_count += res;
   if (res)
     fprintf (stderr, "FAILED: Upgrade with internal epoll, return code %d.\n", res);
   else if (verbose)
