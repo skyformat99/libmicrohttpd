@@ -46,7 +46,6 @@ int iterate_over_available_tls_engines (int index,
 
   while (index < MHD_TLS_ENGINE_TYPE_MAX)
     {
-      fprintf (stderr, "test engine %d\n", index);
       if (MHD_YES == MHD_TLS_is_feature_supported (tls_engines[index].type,
                                                    MHD_TLS_FEATURE_ENGINE_AVAILABLE))
         {
