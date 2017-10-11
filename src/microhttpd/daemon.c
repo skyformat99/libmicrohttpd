@@ -6709,7 +6709,7 @@ MHD_TLS_is_feature_supported (enum MHD_TLS_EngineType engine_type,
   if (NULL == engine)
     return MHD_NO;
 
-  if (MHD_TLS_FEATURE_ENGINE_AVAILABLE)
+  if (MHD_TLS_FEATURE_ENGINE_AVAILABLE == feature)
     return MHD_YES;
   return (MHD_TLS_engine_has_feature (engine,
                                       feature) ? MHD_YES : MHD_NO);

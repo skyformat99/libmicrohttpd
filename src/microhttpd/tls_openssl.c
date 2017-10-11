@@ -528,7 +528,7 @@ static bool
 MHD_TLS_openssl_set_context_cipher_priorities (struct MHD_TLS_Context *context,
                                                const char *priorities)
 {
-  if (0 != SSL_CTX_set_cipher_list (context->d.openssl.context,
+  if (0 == SSL_CTX_set_cipher_list (context->d.openssl.context,
                                     priorities))
     {
       MHD_TLS_LOG_CONTEXT (context,
