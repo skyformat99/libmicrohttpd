@@ -458,6 +458,58 @@ MHD_TLS_gnutls_get_session_protocol_version (struct MHD_TLS_Session *session)
     }
 }
 
+static enum MHD_TLS_CipherAlgorithm
+MHD_TLS_gnutls_get_session_cipher_algorithm (struct MHD_TLS_Session *session)
+{
+  switch (gnutls_cipher_get (session->d.gnutls.session))
+    {
+    case GNUTLS_CIPHER_NULL:
+      return MHD_TLS_CIPHER_ALGORITHM_NULL;
+    case GNUTLS_CIPHER_ARCFOUR_128:
+      return MHD_TLS_CIPHER_ALGORITHM_RC4_128;
+    case GNUTLS_CIPHER_3DES_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_3DES_EDE_112_CBC;
+    case GNUTLS_CIPHER_AES_128_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_128_CBC;
+    case GNUTLS_CIPHER_AES_256_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_256_CBC;
+    case GNUTLS_CIPHER_ARCFOUR_40:
+      return MHD_TLS_CIPHER_ALGORITHM_RC4_40;
+    case GNUTLS_CIPHER_CAMELLIA_128_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_128_CBC;
+    case GNUTLS_CIPHER_CAMELLIA_256_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_256_CBC;
+    case GNUTLS_CIPHER_AES_192_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_192_CBC;
+    case GNUTLS_CIPHER_AES_128_GCM:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_128_GCM;
+    case GNUTLS_CIPHER_AES_256_GCM:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_256_GCM;
+    case GNUTLS_CIPHER_CAMELLIA_192_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_192_CBC;
+    case GNUTLS_CIPHER_CAMELLIA_128_GCM:
+      return MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_128_GCM;
+    case GNUTLS_CIPHER_CAMELLIA_256_GCM:
+      return MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_256_GCM;
+    case GNUTLS_CIPHER_RC2_40_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_RC2_40_CBC;
+    case GNUTLS_CIPHER_DES_CBC:
+      return MHD_TLS_CIPHER_ALGORITHM_DES_56_CBC;
+    case GNUTLS_CIPHER_AES_128_CCM:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_128_CCM;
+    case GNUTLS_CIPHER_AES_256_CCM:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_256_CCM;
+    case GNUTLS_CIPHER_AES_128_CCM_8:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_128_8_CCM;
+    case GNUTLS_CIPHER_AES_256_CCM_8:
+      return MHD_TLS_CIPHER_ALGORITHM_AES_256_8_CCM;
+    case GNUTLS_CIPHER_CHACHA20_POLY1305:
+      return MHD_TLS_CIPHER_ALGORITHM_CHACHA20_POLY1305_256;
+    default:
+      return MHD_TLS_CIPHER_ALGORITHM_UNKNOWN;
+    }
+}
+
 static ssize_t
 MHD_TLS_gnutls_session_handshake (struct MHD_TLS_Session * session)
 {
@@ -573,6 +625,7 @@ const struct MHD_TLS_Engine tls_engine_gnutls =
   MHD_TLS_gnutls_deinit_session,
   MHD_TLS_gnutls_get_specific_session,
   MHD_TLS_gnutls_get_session_protocol_version,
+  MHD_TLS_gnutls_get_session_cipher_algorithm,
   MHD_TLS_gnutls_session_handshake,
   MHD_TLS_gnutls_session_close,
   MHD_TLS_gnutls_session_wants_read,

@@ -377,7 +377,7 @@ void *
 MHD_TLS_get_specific_session (struct MHD_TLS_Session * session)
 {
   if (NULL == session)
-    return;
+    return NULL;
   return session->context->engine->get_specific_session (session);
 }
 
@@ -387,6 +387,14 @@ MHD_TLS_get_session_protocol_version (struct MHD_TLS_Session *session)
   if (NULL == session)
     return MHD_TLS_PROTOCOL_VERSION_UNKNOWN;
   return session->context->engine->get_session_protocol_version (session);
+}
+
+enum MHD_TLS_CipherAlgorithm
+MHD_TLS_get_session_cipher_algorithm (struct MHD_TLS_Session *session)
+{
+  if (NULL == session)
+    return MHD_TLS_CIPHER_ALGORITHM_UNKNOWN;
+  return session->context->engine->get_session_cipher_algorithm (session);
 }
 
 ssize_t

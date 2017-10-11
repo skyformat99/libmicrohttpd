@@ -978,7 +978,12 @@ struct MHD_Connection
   /**
    * Memory location to return for protocol session info.
    */
-  int tls_protocol_version;
+  enum MHD_TLS_ProtocolVersion tls_protocol_version;
+
+  /**
+   * Memory location to return for protocol session info.
+   */
+  enum MHD_TLS_CipherAlgorithm tls_cipher_algorithm;
 
   /**
    * Memory location to return for protocol session info.

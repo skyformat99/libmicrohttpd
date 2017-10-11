@@ -929,6 +929,182 @@ enum MHD_TLS_ProtocolVersion
 };
 
 /**
+ * @brief TLS cipher algorithm.
+ */
+enum MHD_TLS_CipherAlgorithm
+{
+  /**
+   * @brief Unknown algorithm.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_UNKNOWN = 0,
+
+  /**
+   * @brief Null algorithm.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_NULL = 1,
+
+  /**
+   * @brief RC4 with 40-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_RC4_40 = 2,
+
+  /**
+   * @brief RC4 with 56-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_RC4_56 = 2,
+
+  /**
+   * @brief RC4 with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_RC4_128 = 3,
+
+  /**
+   * @brief ChaCha20-Poly1305 with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_CHACHA20_POLY1305_256 = 4,
+
+  /**
+   * @brief RC2 in CBC mode with 40-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_RC2_40_CBC = 5,
+
+  /**
+   * @brief RC2 in CBC mode with 56-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_RC2_56_CBC = 5,
+
+  /**
+   * @brief RC2 in CBC mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_RC2_128_CBC = 5,
+
+  /**
+   * @brief DES in CBC mode with 40-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_DES_40_CBC = 6,
+
+  /**
+   * @brief DES in CBC mode with 56-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_DES_56_CBC = 7,
+
+  /**
+   * @brief IDEA in CBC mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_IDEA_128_CBC = 8,
+
+  /**
+   * @brief GOST 28147-89 in CTR mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_GOST_28147_89_256_CNT = 9,
+
+  /**
+   * @brief 3DES EDE in CBC mode with 112-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_3DES_EDE_112_CBC = 10,
+
+  /**
+   * @brief SEED in CBC mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_SEED_128_CBC = 11,
+
+  /**
+   * @brief ARIA in CBC mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_ARIA_128_CBC = 12,
+
+  /**
+   * @brief ARIA in CBC mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_ARIA_256_CBC = 13,
+
+  /**
+   * @brief ARIA in GCM mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_ARIA_128_GCM = 14,
+
+  /**
+   * @brief ARIA in GCM mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_ARIA_256_GCM = 15,
+
+  /**
+   * @brief Camellia in CBC mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_128_CBC = 16,
+
+  /**
+   * @brief Camellia in CBC mode with 192-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_192_CBC = 16,
+
+  /**
+   * @brief Camellia in CBC mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_256_CBC = 17,
+
+  /**
+   * @brief Camellia in GCM mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_128_GCM = 18,
+
+  /**
+   * @brief Camellia in GCM mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_CAMELLIA_256_GCM = 19,
+
+  /**
+   * @brief AES in CBC mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_128_CBC = 20,
+
+  /**
+   * @brief AES in CBC mode with 192-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_192_CBC = 20,
+
+  /**
+   * @brief AES in CBC mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_256_CBC = 21,
+
+  /**
+   * @brief AES in GCM mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_128_GCM = 22,
+
+  /**
+   * @brief AES in GCM mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_256_GCM = 23,
+
+  /**
+   * @brief AES in CCM mode with 128-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_128_CCM = 24,
+
+  /**
+   * @brief AES in CCM mode with 256-bit keys.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_256_CCM = 25,
+
+  /**
+   * @brief AES in CCM mode with 128-bit keys and 8-byte tag.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_128_8_CCM = 24,
+
+  /**
+   * @brief AES in CCM mode with 256-bit keys and 8-byte tag.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_AES_256_8_CCM = 25,
+
+  /**
+   * @brief Upper-bound value.
+   */
+  MHD_TLS_CIPHER_ALGORITHM_MAX = MHD_TLS_CIPHER_ALGORITHM_AES_256_8_CCM
+};
+
+/**
  * @brief Flags for the `struct MHD_Daemon`.
  *
  * Note that MHD will run automatically in background thread(s) only
@@ -1840,6 +2016,11 @@ union MHD_ConnectionInfo
    * TLS protocol version.
    */
   enum MHD_TLS_ProtocolVersion tls_protocol_version;
+
+  /**
+   * TLS cipher algorithm.
+   */
+  enum MHD_TLS_CipherAlgorithm tls_cipher_algorithm;
 };
 
 
@@ -1854,7 +2035,7 @@ enum MHD_ConnectionInfoType
    * What cipher algorithm is being used.
    * Takes no extra arguments.
    * It's made available in attribute #MHD_ConnectionInfo::cipher_algorithm,
-   * but when using the GnuTLS TLS engine.
+   * but only when using the GnuTLS TLS engine.
    * @ingroup request
    */
   MHD_CONNECTION_INFO_CIPHER_ALGO,
@@ -1945,7 +2126,15 @@ enum MHD_ConnectionInfoType
    * It's made available in attribute #MHD_ConnectionInfo::tls_session.
    * @ingroup request
    */
-  MHD_CONNECTION_INFO_TLS_SESSION
+  MHD_CONNECTION_INFO_TLS_SESSION,
+
+  /**
+   * What cipher algorithm is being used.
+   * Takes no extra arguments.
+   * It's made available in attribute #MHD_ConnectionInfo::tls_cipher_algorithm.
+   * @ingroup request
+   */
+  MHD_CONNECTION_INFO_TLS_CIPHER_ALGO
 };
 
 

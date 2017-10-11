@@ -3506,6 +3506,11 @@ MHD_get_connection_info (struct MHD_Connection *connection,
         return NULL;
       connection->tls_specific_session = MHD_TLS_get_specific_session (connection->tls_session);
       return (const union MHD_ConnectionInfo *) &connection->tls_specific_session;
+    case MHD_CONNECTION_INFO_TLS_CIPHER_ALGO:
+      if (NULL == connection->tls_session)
+        return NULL;
+      connection->tls_cipher_algorithm = MHD_TLS_get_session_cipher_algorithm (connection->tls_session);
+      return (const union MHD_ConnectionInfo *) &connection->tls_cipher_algorithm;
 #endif /* HTTPS_SUPPORT */
     case MHD_CONNECTION_INFO_CLIENT_ADDRESS:
       return (const union MHD_ConnectionInfo *) &connection->addr;
