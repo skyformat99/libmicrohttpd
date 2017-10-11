@@ -134,15 +134,13 @@ main (int argc, char *const *argv)
     }
 
   tls_engine_index = 0;
-  while (0 <= iterate_over_available_tls_engines (tls_engine_index,
-                                                  &tls_engine_type,
-                                                  &tls_engine_name))
+  while (0 <= (tls_engine_index = iterate_over_available_tls_engines (tls_engine_index,
+                                                                      &tls_engine_type,
+                                                                      &tls_engine_name)))
     {
       char test_name[256];
       const char *priorities;
       int i;
-
-      tls_engine_index++;
 
       for (i = 0; i < MHD_TLS_ENGINE_TYPE_MAX; ++i)
         if (priorities_by_engine[i].type == tls_engine_type)

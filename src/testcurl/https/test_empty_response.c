@@ -59,8 +59,7 @@ ahc_echo (void *cls,
 
 
 static int
-testInternalSelectGet (enum MHD_TLS_EngineType tls_engine_type,
-                       const char *tls_engine_name)
+testInternalSelectGet (enum MHD_TLS_EngineType tls_engine_type)
 {
   struct MHD_Daemon *d;
   CURL *c;
@@ -215,16 +214,15 @@ main (int argc, char *const *argv)
       return 77;
     }
   tls_engine_index = 0;
-  while (0 <= iterate_over_available_tls_engines (tls_engine_index,
-                                                  &tls_engine_type,
-                                                  &tls_engine_name))
+  while (0 <= (tls_engine_index = iterate_over_available_tls_engines (tls_engine_index,
+                                                                      &tls_engine_type,
+                                                                      &tls_engine_name)))
     {
       unsigned int result;
-      result = testInternalSelectGet (tls_engine_type, tls_engine_name);
+      result = testInternalSelectGet (tls_engine_type);
       if (0 != result)
         fprintf (stderr, "Failed test: %s, engine:%s.\n", argv[0], tls_engine_name);
       errorCount += result;
-      tls_engine_index++;
     }
     if (0 != errorCount)
       fprintf (stderr, "Failed test: %s, error: %u.\n", argv[0], errorCount);
