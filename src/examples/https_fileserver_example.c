@@ -35,7 +35,6 @@
 #include "platform.h"
 #include <microhttpd.h>
 #include <sys/stat.h>
-#include <gnutls/gnutls.h>
 
 #define BUF_SIZE 1024
 #define MAX_URL_LEN 255
