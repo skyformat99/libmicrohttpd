@@ -196,92 +196,54 @@ BIO_new_cb (BIO_ReadCallback read_cb,
 
     return bio;
 }
-#if defined(MHD_USE_POSIX_THREADS)
 
-static pthread_mutex_t *locks;
+
+static MHD_mutex_ *locks;
 
 static void
-pthreads_locking_callback (int mode,
-                           int type,
-                           const char *file,
-                           int line)
+crypto_locking_callback (int mode,
+                         int type,
+                         const char *file,
+                         int line)
 {
   if (mode & CRYPTO_LOCK)
-    pthread_mutex_lock (&locks[type]);
+    MHD_mutex_lock_chk_ (&locks[type]);
   else
-    pthread_mutex_unlock (&locks[type]);
+    MHD_mutex_unlock_chk_ (&locks[type]);
 }
+
+#if defined(MHD_USE_POSIX_THREADS)
 
 static unsigned long
-pthreads_thread_id (void)
+crypto_thread_id (void)
 {
-  return (unsigned long)pthread_self ();
-}
-
-static void
-threads_init (void)
-{
-  size_t i;
-
-  locks = OPENSSL_malloc (CRYPTO_num_locks () * sizeof (pthread_mutex_t));
-  if (NULL == locks)
-    MHD_PANIC (_("Cannot allocate locks for OpenSSL\n"));
-
-  for (i = 0; i < CRYPTO_num_locks (); i++)
-    pthread_mutex_init (&locks[i], NULL);
-
-  CRYPTO_set_id_callback (pthreads_thread_id);
-  CRYPTO_set_locking_callback (pthreads_locking_callback);
-}
-
-static void
-threads_deinit (void)
-{
-  size_t i;
-
-  CRYPTO_set_locking_callback (NULL);
-  CRYPTO_set_id_callback (NULL);
-  for (i = 0; i < CRYPTO_num_locks (); i++)
-    pthread_mutex_destroy (&locks[i]);
-  OPENSSL_free (locks);
+  return (unsigned long) pthread_self ();
 }
 
 #elif defined(MHD_W32_MUTEX_)
 
-static HANDLE *locks;
-
-void
-win32_locking_callback (int mode,
-                        int type,
-                        const char *file,
-                        int line)
-{
-  if (mode & CRYPTO_LOCK)
-    WaitForSingleObject (locks[type], INFINITE);
-  else
-    ReleaseMutex (locks[type]);
-}
-
 static unsigned long
-win32_thread_id (void)
+crypto_thread_id (void)
 {
   return (unsigned long) GetCurrentThreadId ();
 }
+
+#endif
 
 static void
 threads_init (void)
 {
   size_t i;
 
-  locks = OPENSSL_malloc (CRYPTO_num_locks () * sizeof (HANDLE));
+  locks = OPENSSL_malloc (CRYPTO_num_locks () * sizeof (MHD_mutex_));
   if (NULL == locks)
     MHD_PANIC (_("Cannot allocate locks for OpenSSL\n"));
 
   for (i = 0; i < CRYPTO_num_locks (); i++)
-    locks[i] = CreateMutex (NULL, FALSE, NULL);
+    MHD_mutex_init_ (&locks[i]);
 
-  CRYPTO_set_id_callback (win32_thread_id);
-  CRYPTO_set_locking_callback (win32_locking_callback);
+  CRYPTO_set_id_callback (crypto_thread_id);
+  CRYPTO_set_locking_callback (crypto_locking_callback);
 }
 
 static void
@@ -292,11 +254,9 @@ threads_deinit (void)
   CRYPTO_set_locking_callback (NULL);
   CRYPTO_set_id_callback (NULL);
   for (i = 0; i < CRYPTO_num_locks (); i++)
-    CloseHandle (locks[i]);
+    MHD_mutex_destroy_chk_ (&locks[i]);
   OPENSSL_free (locks);
 }
-
-#endif
 
 void
 MHD_TLS_openssl_init (void)
