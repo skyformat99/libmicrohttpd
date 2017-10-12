@@ -1,5 +1,2 @@
 - Test on WIN32.
-- Extend API for use of openssl.
-- Update tests that use gcrypt and gnutls.
-- Pass all tests.
 - Update documentation.
