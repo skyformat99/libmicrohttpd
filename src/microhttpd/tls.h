@@ -173,54 +173,279 @@ struct MHD_TLS_Engine
    */
   enum MHD_TLS_EngineType type;
 
+  /**
+   * @brief Test if an engine supports a given feature.
+   *
+   * @param feature A TLS feature.
+   *
+   * @return @c true if supported, @c false otherwise.
+   *
+   * @sa #MHD_TLS_engine_has_feature
+   */
   bool (*has_feature)(enum MHD_TLS_FEATURE feature);
 
+  /**
+   * @brief Initialize the engine-specific data of a TLS context.
+   *
+   * The engine-independent attributes are already initialized.
+   *
+   * @param context TLS context.
+   *
+   * @return @c true on success, @c false on failure.
+   *
+   * @sa #MHD_TLS_create_context
+   */
   bool (*init_context) (struct MHD_TLS_Context *context);
+
+  /**
+   * @brief Releases the engine-specific data of a TLS context.
+   *
+   * The engine-independent attributes are still initialized.
+   *
+   * @param context TLS context.
+   *
+   * @sa #MHD_TLS_del_context
+   */
   void (*deinit_context) (struct MHD_TLS_Context * context);
 
+  /**
+   * @brief Set a certificate selection callback.
+   *
+   * @param context TLS context.
+   * @param cb Certificate selection callback, or @c NULL to unset.
+   *
+   * @see #MHD_TLS_set_context_certificate_cb
+   */
   bool (*set_context_certificate_cb) (struct MHD_TLS_Context *context,
                                       MHD_TLS_GetCertificateCallback cb);
 
+  /**
+   * @brief Set Diffie-Hellman parameters.
+   *
+   * @param context TLS context.
+   * @param params DH parameters in PEM format.
+   *
+   * @return @c true on success, @c false otherwise.
+   *
+   * @see #MHD_TLS_set_context_dh_params
+   */
   bool (*set_context_dh_params) (struct MHD_TLS_Context *context,
                                  const char *params);
 
+  /**
+   * @brief Set the server certificate and private key.
+   *
+   * @param context TLS context.
+   * @param certificate X.509 certificate in PEM format.
+   * @param private_key Private key in PEM format.
+   * @param password Private key password or @c NULL if not password-protected.
+   *
+   * @return @c true on success, @c false otherwise.
+   *
+   * @see #MHD_TLS_set_context_certificate
+   */
   bool (*set_context_certificate) (struct MHD_TLS_Context *context,
                                    const char *certificate,
                                    const char *private_key,
                                    const char *password);
 
+  /**
+   * @brief Set trust certificates for client certificate verification.
+   *
+   * @param context TLS context.
+   * @param certificate Certificate chain in PEM format.
+   *
+   * @return @c true on success, @c false otherwise.
+   *
+   * @see #MHD_TLS_set_context_trust_certificate
+   */
   bool (*set_context_trust_certificate) (struct MHD_TLS_Context *context,
                                          const char *certificate);
 
+  /**
+   * @brief Set the client certificate mode.
+   *
+   * @param context TLS context.
+   * @param mode Don't ask, request or require a client certificate.
+   *
+   * @return @c true on success, @c false otherwise.
+   *
+   * @sa #MHD_TLS_set_context_client_certificate_mode
+   */
   bool (*set_context_client_certificate_mode) (struct MHD_TLS_Context *context,
                                                enum MHD_TLS_ClientCertificateMode mode);
 
+  /**
+   * @brief Set the priorities to use on encyption, key exchange and MAC
+   * algorithms.
+   *
+   * @param context TLS context.
+   * @param priorities Priority description string.
+   *
+   * @return @c true on success, @c false otherwise.
+   *
+   * @sa #MHD_TLS_set_context_cipher_priorities
+   */
   bool (*set_context_cipher_priorities) (struct MHD_TLS_Context *context,
                                          const char *priorities);
 
+  /**
+   * @brief Create a TLS session.
+   *
+   * The engine-independent attributes are already initialized.
+   *
+   * This function must be thread-safe even when using the same context.
+   *
+   * @param context TLS context.
+   * @param read_cb Callback to read data from the transport layer.
+   * @param write_cb Callback to write data to the transport layer.
+   * @param cb_data Opaque data for read/write callbacks.
+   *
+   * @return @c true on success, @c false otherwise.
+   *
+   * @sa #MHD_TLS_create_session
+   */
   bool (*init_session) (struct MHD_TLS_Session * session,
                         MHD_TLS_ReadCallback read_cb,
                         MHD_TLS_WriteCallback write_cb,
                         void *cb_data);
+
+  /**
+   * @brief Delete a TLS session.
+   *
+   * The engine-independent attributes are still initialized.
+   *
+   * @param session TLS session.
+   *
+   * @sa #MHD_TLS_del_session
+   */
   void (*deinit_session) (struct MHD_TLS_Session * session);
 
+  /**
+   * @brief Get the engine-specific session.
+   *
+   * @param session TLS session.
+   *
+   * @return Engine-specific session. The pointer must remain valid until the
+   * session is deleted.
+   *
+   * @sa #MHD_TLS_get_specific_session
+   */
   void * (*get_specific_session) (struct MHD_TLS_Session * session);
 
+  /**
+   * @brief Get the version of the currently used protocol.
+   *
+   * @param session TLS session.
+   *
+   * @return Protocol version.
+   *
+   * @sa #MHD_TLS_get_session_protocol_version
+   */
   enum MHD_TLS_ProtocolVersion (*get_session_protocol_version) (struct MHD_TLS_Session *session);
 
+  /**
+   * @brief Get the currently used cipher algorithm.
+   *
+   * @param session TLS session.
+   *
+   * @return Cipher algorithm.
+   *
+   * @sa #MHD_TLS_get_session_cipher_algorithm
+   */
   enum MHD_TLS_CipherAlgorithm (*get_session_cipher_algorithm) (struct MHD_TLS_Session *session);
 
+  /**
+   * @brief Make a TLS handshake a set up the TLS connection.
+   *
+   * @param session TLS session.
+   *
+   * @return
+   * - 0 on success.
+   * - A @c MHD_TLS_IO_XXX error code otherwise.
+   *
+   * @sa #MHD_TLS_session_handshake
+   */
   ssize_t (*session_handshake) (struct MHD_TLS_Session * session);
+
+  /**
+   * @brief Tear down the TLS connection.
+   *
+   * @param session TLS session.
+   *
+   * @return
+   * - 0 on success.
+   * - A @c MHD_TLS_IO_XXX error code otherwise.
+   *
+   * @sa #MHD_TLS_session_close
+   */
   ssize_t (*session_close) (struct MHD_TLS_Session * session);
 
+  /**
+   * @brief Test if the TLS sessions needs to read more data.
+   *
+   * @param session TLS session.
+   *
+   * @return @c true if it needs to read data, @c false otherwise.
+   *
+   * @sa #MHD_TLS_session_wants_read
+   */
   bool (*session_wants_read) (struct MHD_TLS_Session * session);
+
+  /**
+   * @brief Test if the TLS sessions needs to write data.
+   *
+   * @param session TLS session.
+   *
+   * @return @c true if it needs to write data, @c false otherwise.
+   *
+   * @sa #MHD_TLS_session_wants_write
+   */
   bool (*session_wants_write) (struct MHD_TLS_Session * session);
 
+  /**
+   * @brief Test if we can read application data out of the TLS connection.
+   *
+   * @param session TLS session.
+   *
+   * @return @c true if application data is available for reading, @c false
+   * otherwise.
+   *
+   * @sa #MHD_TLS_session_read_pending
+   */
   size_t (*session_read_pending) (struct MHD_TLS_Session *session);
 
+  /**
+   * @brief Read application data out of the TLS connection.
+   *
+   * @param session TLS session.
+   * @param buf Where to store application data.
+   * @param size Maximum number of bytes to return.
+   *
+   * @return
+   * - The number of bytes returned on success.
+   * - 0 if no data is available.
+   * - A @c MHD_TLS_IO_XXX error code otherwise.
+   *
+   * @sa #MHD_TLS_session_read
+   */
   ssize_t (*session_read) (struct MHD_TLS_Session * session,
                            void *buf,
                            size_t size);
+
+  /**
+   * @brief Write application data to the TLS connection.
+   *
+   * @param session TLS session.
+   * @param buf Application data.
+   * @param size How many bytes to write.
+   *
+   * @return
+   * - The number of bytes written on success.
+   * - A @c MHD_TLS_IO_XXX error code otherwise.
+   *
+   * @sa #MHD_TLS_session_write
+   */
   ssize_t (*session_write) (struct MHD_TLS_Session * session,
                             const void *buf,
                             size_t size);
@@ -467,7 +692,7 @@ MHD_TLS_log_context_va (struct MHD_TLS_Context *context,
  * #MHD_TLS_set_context_certificate.
  *
  * @param context TLS context.
- * @param cb Certificate selection callback.
+ * @param cb Certificate selection callback, or @c NULL to unset.
  *
  * @see #MHD_TLS_FEATURE_CERT_CALLBACK
  */
